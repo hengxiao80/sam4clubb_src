@@ -1,0 +1,93 @@
+subroutine surface
+
+  use vars, only: u, v, t, presi, fluxbt, fluxbq, fluxbu, fluxbv, &
+    masterproc, rhow
+  use grid, only: nx,ny,nzm,nz, dimx1_s,dimx2_s,dimy1_s,dimy2_s
+  use domain, only: YES3D 
+  use params, only: fluxq0, fluxt0, tabs_s, ug, vg
+  use microphysics, only: micro_field, index_water_vapor
+
+  implicit none
+  real :: u_h0, taux0, tauy0
+  real, external :: qsatw
+
+  integer :: ic, jc, i, j
+
+  do j=1,ny
+    jc=j+YES3D
+    do i=1,nx
+      ic=i+1
+
+      u_h0 = sqrt((0.5*(u(ic,j,1)+u(i,j,1))+ug)**2+(0.5*(v(i,jc,1)+v(i,j,1))+vg)**2)
+      fluxt0 = -0.001094*u_h0 * (t(i,j,1) - real(tabs_s) )
+      fluxq0 = -0.001133*u_h0 &
+                * ( micro_field(i,j,1,index_water_vapor) &
+                    - qsatw(real(tabs_s),presi(1)) )
+      taux0 = -rhow(1)*0.001229*u_h0*(0.5*(u(ic,j,1)+u(i,j,1))+ug)
+      tauy0 = -rhow(1)*0.001229*u_h0*(0.5*(v(ic,j,1)+v(i,j,1))+vg)
+      fluxbt(i,j) = fluxt0
+      fluxbq(i,j) = fluxq0
+      fluxbu(i,j) = taux0/rhow(1)
+      fluxbv(i,j) = tauy0/rhow(1)
+#ifdef UWM_MISC
+      ! The RICO case specification for moisture flux is given in terms of total
+      ! water specific humidity, qt.  The equation is:
+      !
+      ! <w'qt'>|_sfc = - C_q * ||U|| * ( qt - qsat|_sfc );
+      !
+      ! where <w'qt'>|_sfc is the surface moisture flux in terms of specific
+      ! humidity, qt is the specific humidity at the lowest vertical level,
+      ! qsat|_sfc is the saturation specific humidity with respect to liquid
+      ! water at the surface (at altitude z = 0 based on the Sea Surface
+      ! Temperature), ||U|| is the wind speed, and C_q is a coefficient, where
+      ! C_q = 0.001133 (based on a 20 m. grid height).
+      !
+      ! The SAM model is written in terms of total water mixing ratio, rt, which
+      ! means that
+      ! ( micro_field(i,j,1,index_water_vapor) - qsatw(real(tabs_s),presi(1)) )
+      ! is rt - rsat|_sfc, where rt is total water mixing ratio at the lowest
+      ! vertical level and rsat|_sfc is saturation mixing ratio with respect to
+      ! liquid water at the surface.  The equation for <w'qt'>|_sfc can be
+      ! written in terms of total water mixing ratio because:
+      !
+      ! qt - qsat = ( rt - rsat ) / ( ( 1 + rt ) * ( 1 + rsat ) ).
+      !
+      ! The equation for <w'qt'>|_sfc becomes:
+      !
+      ! <w'qt'>|_sfc = - rt_coef * C_q * ||U|| * ( rt - rsat|_sfc );
+      !
+      ! where rt_coef = 1 / ( ( 1 + rt ) * ( 1 + rsat|_sfc ) ).
+      !
+      ! However, the moisture flux needs to be put in terms of mixing ratio,
+      ! <w'rt'>|_sfc.  This can be approximated by the equation:
+      !
+      ! <w'rt'>|_sfc = ( 1 + rt )^2 * <w'qt'>|_sfc.
+      !
+      ! Overall, the surface moisture flux equation becomes:
+      !
+      ! <w'rt'>|_sfc 
+      ! = - ( 1 + rt )^2 * rt_coef * C_q * ||U|| * ( rt - rsat|_sfc );
+      !
+      ! which can be rewritten as:
+      !
+      ! <w'rt'>|_sfc = - C_q * ||U|| * ( rt - rsat|_sfc ) * coef;
+      !
+      ! where:
+      !
+      ! coef = ( 1 + rt )^2 / ( ( 1 + rt ) * ( 1 + rsat|_sfc ) );
+      !
+      ! which reduces to:
+      !
+      ! coef = ( 1 + rt ) / ( 1 + rsat|_sfc ).
+      fluxbq(i,j) &
+      = ( ( 1.0 + micro_field(i,j,1,index_water_vapor) ) &
+          / ( 1.0 + qsatw(real(tabs_s),presi(1)) ) ) &
+        * fluxbq(i,j)
+#endif /* UWM_MISC */
+!     if ( masterproc ) then
+!        write(6,*) "qflux", i, j, fluxbq(i,j), micro_field(i,j,1,index_water_vapor)
+!     end if
+    end do
+  end do
+
+end subroutine surface

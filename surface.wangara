@@ -1,0 +1,47 @@
+!----------------------------------------------------------------------
+  subroutine surface()
+! Description:
+!   This subroutine computes surface fluxes of horizontal momentum,
+!   heat and moisture for Wangara day 33
+!
+! References:
+!   ``A PDF-Based Model for Boundary Layer Clouds. Part II:
+!   Model results'' Golaz, et al. (2002)
+!   JAS, Vol. 59, pp. 3552--3571.
+!----------------------------------------------------------------------
+
+    use params, only: pi, Cp, tau0, ug, vg
+
+    use vars, only: fluxbt, fluxbq, fluxbu, fluxbv, rhow, dt, nstep, & ! Variable(s)
+      u0, v0
+
+    implicit none
+
+    intrinsic :: COS
+
+    ! Local variables
+
+     real :: ustar, time, heat_flux, moisture_flux, taux0, tauy0, u_h0
+
+
+    ! Declare the value of ustar.
+    ustar = 0.13
+
+    time = dt * nstep + 32400.0
+
+    ! The heat and moisture fluxes for the WANGARA case.
+    heat_flux = 0.18 * COS( ( (time-45000.0) / 36000.0 ) * pi )
+    moisture_flux = 0.00013 * heat_flux
+
+    fluxbt(:,:) = heat_flux !* Cp * rhow(1)
+    fluxbq(:,:) = moisture_flux !* rhow(1)
+
+    tau0 = ustar
+    u_h0 = max(0.25, sqrt( (u0(1)+ug)**2 + (v0(1)+vg)**2 ) )
+    taux0 = -(u0(1)+ug) * tau0**2 / u_h0
+    tauy0 = -(v0(1)+vg) * tau0**2 / u_h0
+    fluxbu(:,:) = taux0
+    fluxbv(:,:) = tauy0
+
+    return
+  end subroutine surface
