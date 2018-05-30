@@ -308,7 +308,12 @@ subroutine sgs_scalars()
   use vars
   use microphysics
   use tracers
+  ! Heng Xiao: added for diagnosing SGS <thel'w'> and <qto'w'>
+#ifdef PNNL_STATS
+  use params, only: dotracers, rgas, cp
+#else
   use params, only: dotracers
+#endif
 #ifdef PNNL_STATS
   use calc_vars_util, only: t2thetal
 #endif
@@ -479,6 +484,9 @@ subroutine sgs_scalars()
             r2dz=2./((kc-kb)*(adzw(k+1)+adzw(k))*dz)
             r2dx=r2dx0*sqrt((kc-kb)*dx*r2dz) ! grid anisotropy correction
             r2dy=r2dy0*sqrt((kc-kb)*dx*r2dz)
+            !Heng Xiao: for diagnosing SGS <thel'w'>
+            thelws(k) = 0.
+            qtows(k) = 0.
             do j = 1, ny
                jc=j+YES3D
                jb=j-YES3D
@@ -511,6 +519,24 @@ subroutine sgs_scalars()
                   !   )*r2dx**2+ &
                   !   ((thelcurr(i,jc,k)-thelcurr(i,jb,k))*(micro_field(i,jc,k,index_water_vapor)-micro_field(i,jb,k,index_water_vapor))
                   !   )*r2dy**2 )
+
+                  !Heng Xiao: diagnosing the SGS <thel'w'>
+                  !Note that the flux is on the interface levels not the mid-layer levels.
+                  !The same is true for QTOFLX/QTOFLXS but it seems that the statistics
+                  !output put them at the mid-layer levels (95% sure).
+                  !The other fluxes (and other w related variables) calculated in statistics.F90
+                  !are, however, interpolated to the mid-layer levels.
+                  if (k .eq. 1) then
+                    thelws(k) = thelws(k) + fluxbt(i,j)*(1000./pres0)**(rgas/cp)
+                    qtows(k) = qtows(k) + 1.0e3*fluxbq(i,j)*(1000./pres0)**(rgas/cp) ! convert to g/kg
+                  else
+                    thelws(k) = thelws(k) - 0.5*(tkh(i,j,k)+tkh(i,j,k-1))* &
+                                            (thelprev(i,j,k)-thelprev(i,j,k-1)) &
+                                            /(adzw(k)*dz)
+                    qtows(k) = qtows(k) - 0.5*(tkh(i,j,k)+tkh(i,j,k-1))* &
+                                          (q1(i,j,k)-q1(i,j,k-1))*1.0e3 &
+                                          /(adzw(k)*dz)
+                  end if
                enddo
             enddo
             !thel2lediss(k)=thel2lediss(k)*2.*factor_xy
@@ -524,7 +550,6 @@ subroutine sgs_scalars()
 !                                        thelcurr(1,1,k), t(1,1,k) 
 !           write(6,*) 'SGS_TKE/sgs: qtog2diss(k) q2lediss(k) ', qtog2lediss(k), q2lediss(k), 'k', k, &
 !                                       qtogcurr(1,1,k), micro_field(1,1,k,index_water_vapor)
-
 
          enddo
       endif

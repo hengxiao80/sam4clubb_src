@@ -62,6 +62,14 @@ implicit none
         real qtog3z(nzm)    !MWSWong: third moment of "real" total water profile
         real qto3z(nzm)     !MWSWong: third moment of "clubb" total water (qv+qc) profile
         real t3z(nzm)      !MWSWong: third moment of liquid-ice static energy
+	!Heng Xiao w'w'w' budget
+    real w3legrad(nzm)
+	!Heng Xiao theta_l'w'
+	real thelw(nzm)
+	!Heng Xiao q_t'w'
+	real qtow(nzm)
+	!Heng Xiao q_t'theta_l'
+	real qtothelz(nzm)
 #endif /*PNNL_STATS*/
 	
 	
@@ -404,6 +412,10 @@ real, dimension(nzm) :: vwp ! vapor water path [ kg / m^2 ]
         qtog2z(k) = 0. !MWSWong:added
         qto3z(k) = 0. !MWSWong:added
         t3z(k) = 0. !MWSWong:added
+		!Heng Xiao
+		qtow(k) = 0.
+		thelw(k) = 0.
+		qtothelz(k) = 0.
 #endif /*PNNL_STATS*/
 	 do j=1,ny
 	  do i=1,nx
@@ -418,15 +430,24 @@ real, dimension(nzm) :: vwp ! vapor water path [ kg / m^2 ]
 	    q2z(k) = q2z(k)+(qv(i,j,k)+qcl(i,j,k)+qci(i,j,k)-q0(k))**2
 #endif 
 #ifdef PNNL_STATS
-	    q2z(k) = q2z(k)+(qv(i,j,k)+qcl(i,j,k)-q0(k)-qi0(k))**2
+		! Heng Xiao: sign wrong in front of qi0
+	    !q2z(k) = q2z(k)+(qv(i,j,k)+qcl(i,j,k)-q0(k)-qi0(k))**2
+	    q2z(k) = q2z(k)+(qv(i,j,k)+qcl(i,j,k)-q0(k)+qi0(k))**2
 	    thel3z(k) = thel3z(k)+(thel(i,j,k)-thel0(k))**3
 	    thel2z(k) = thel2z(k)+(thel(i,j,k)-thel0(k))**2
-	    qto3z(k) = qto3z(k)+(qv(i,j,k)+qcl(i,j,k)-q0(k)-qi0(k))**3
+	    qto3z(k) = qto3z(k)+(qv(i,j,k)+qcl(i,j,k)-q0(k)+qi0(k))**3
             qtog2z(k) = qtog2z(k)+(qv(i,j,k)+qcl(i,j,k)+qci(i,j,k)+qpl(i,j,k)+qpi(i,j,k) &
                                   - q0(k)-qp0(k))**2
             qtog3z(k) = qtog3z(k)+(qv(i,j,k)+qcl(i,j,k)+qci(i,j,k)+qpl(i,j,k)+qpi(i,j,k) &
                                   - q0(k)-qp0(k))**3
             t3z(k) = t3z(k) + (t(i,j,k)-t0(k))**3
+		!Heng Xiao
+		if (k .gt. 1) then
+	      qtow(k) = qtow(k)+(qv(i,j,k)+qcl(i,j,k)+qv(i,j,k-1)+qcl(i,j,k-1) &
+		                     -q0(k)-q0(k-1)+qi0(k)+qi0(k-1))*w(i,j,k)*0.5
+	      thelw(k) = thelw(k)+(thel(i,j,k)+thel(i,j,k-1)-thel0(k)-thel0(k-1))*w(i,j,k)*0.5
+		end if
+	    qtothelz(k) = qtothelz(k)+(thel(i,j,k)-thel0(k))*(qv(i,j,k)+qcl(i,j,k)-q0(k)+qi0(k))
 #endif /*PNNL_STATS*/
 	    if(w(i,j,k)+w(i,j,k+1).gt.0) aup(k) = aup(k) + 1
 	  end do
@@ -452,43 +473,48 @@ real, dimension(nzm) :: vwp ! vapor water path [ kg / m^2 ]
 	end do
 
 #ifdef PNNL_STATS
-       ! MWSWong: calculate skewness by averaging second- and third-moment of w' 
-       ! over the ENTIRE domain 
-        if (dompi) then
-         coef1=1./float(nsubdomains)
-         do k=1,nzm
-            buffer(k,1)=w2z(k)
-            buffer(k,2)=w3z(k)
-         end do
-         call task_sum_real(buffer,buffer1,nzm*2)
-         do k=1,nzm
-            w2z0(k)=buffer1(k,1)*coef1
-            w3z0(k)=buffer1(k,2)*coef1
-         end do
-         
-         do k =1,nzm
+    ! MWSWong: calculate skewness by averaging second- and third-moment of w' 
+    ! over the ENTIRE domain 
+    if (dompi) then
+      !Heng Xiao: The coef1 calculated below is not right.
+      !coef1=1./float(nsubdomains)
+      coef1 = factor_n*factor_xy
+      do k=1,nzm
+        buffer(k,1)=w2z(k)
+        buffer(k,2)=w3z(k)
+      end do
+      call task_sum_real(buffer,buffer1,nzm*2)
+      do k=1,nzm
+        w2z0(k)=buffer1(k,1)*coef1
+        w3z0(k)=buffer1(k,2)*coef1
+      end do
+      do k =1,nzm
 #ifndef UWM_STATS
-            skw(k)=w3z0(k)/(w2z0(k))**1.5
+        skw(k)=w3z0(k)/(w2z0(k))**1.5
 #else
-            if(w2z0(k) .eq. 0.0) then
-              skw(k) = 0.
-            else
-              skw(k)=w3z0(k)/(w2z0(k))**1.5
-            endif
+        if(w2z0(k) .eq. 0.0) then
+          skw(k) = 0.
+        else
+          skw(k)=w3z0(k)/(w2z0(k))**1.5
+        endif
 #endif
-         end do
-        end if
+      end do
+    end if
 #endif /*PNNL_STATS*/
 	call hbuf_put('U2',u2z,factor_xy)
 	call hbuf_put('V2',v2z,factor_xy)
-	call hbuf_put('W2',w2z,factor_xy)
+	! Heng Xiao: I decided to output w related stats except w3
+	! on interfacial levels
+	! so that it is easier for CLUBB to read and interpolate
+	!call hbuf_put('W2',w2z,factor_xy)
+	call hbuf_put('W2',w22,factor_xy)
 	call hbuf_put('W3',w3z,factor_xy)
 #ifdef PNNL_STATS
-        if (dompi) then
-	  call hbuf_put('WSKEW',skw,1.)
-        else
-	  call hbuf_put('WSKEW',skw,factor_xy)
-        end if
+	if (dompi) then
+      call hbuf_put('WSKEW',skw,1.)
+	else
+      call hbuf_put('WSKEW',skw,factor_xy)
+	endif
 #else
 	call hbuf_put('WSKEW',skw,factor_xy)
 #endif /*PNNL_STATS*/
@@ -505,9 +531,15 @@ real, dimension(nzm) :: vwp ! vapor water path [ kg / m^2 ]
         call hbuf_put('TL3',t3z,factor_xy)
         call hbuf_put('QTO3',qto3z,1.e9*factor_xy)
         call hbuf_put('QTOG2',qtog2z,1.e6*factor_xy)
-        call hbuf_put('QTOG3',qtog3z,1.e6*factor_xy)
+        call hbuf_put('QTOG3',qtog3z,1.e9*factor_xy)
         call hbuf_put('THEL3',thel3z,factor_xy)
         call hbuf_put('THEL2',thel2z,factor_xy)
+		!Heng Xiao
+        call hbuf_put('QTOW',qtow,1.0e3*factor_xy)
+        call hbuf_put('THELW',thelw,factor_xy)
+        call hbuf_put('QTOWS',qtows,factor_xy)
+        call hbuf_put('THELWS',thelws,factor_xy)
+        call hbuf_put('QTOTHEL',qtothelz,1.0e3*factor_xy)
 #endif /*PNNL_STATS*/	
 	call hbuf_put('TKE',tkez,factor_xy)
 !-----------------------------------------------------------------
@@ -829,7 +861,22 @@ real, dimension(nzm) :: vwp ! vapor water path [ kg / m^2 ]
          qtogwleadv(k)=coef
         end do  
 
-
+!Heng Xiao w'w'w' budget
+!-d(w'w'w'w')/dz: 
+        do k=2,nzm
+         fadv(k)=0.
+         do j=1,ny
+          do i=1,nx
+            fadv(k)=fadv(k)+w(i,j,k)**4*rhow(k)
+          end do
+         end do
+		 fadv(k) = fadv(k)*factor_xy
+        end do
+        do k=1,nzm
+         coef=-(fadv(k+1)-fadv(k))/(adz(k)*dz*rho(k))
+         w3legrad(k)=w3leadv(k)-coef
+         w3leadv(k)=coef
+        end do  
 
  !  Q*THL advection d(w'q'thl')/dz:
         !do k=2,nzm
@@ -897,6 +944,14 @@ real, dimension(nzm) :: vwp ! vapor water path [ kg / m^2 ]
 	call hbuf_put('QTOGWPREC',qtogwleprec,factor_xy)
         call hbuf_put('QTOGWFORC',qtogwleforc,factor_xy) ! Added enhanced budget terms
 	call hbuf_put('QTOGWBT',qtogwlebt,factor_xy) ! Added enhanced budget terms
+
+!Heng Xiao w'w'w' budget
+        call hbuf_put('W3ADV',w3leadv,1.0)
+        call hbuf_put('W3GRAD',w3legrad,1.0)
+        call hbuf_put('W3BUOY',w3lebuoy,1.0)
+        call hbuf_put('W3PRES',w3lepres,1.0)
+        call hbuf_put('W3DIFF',w3lediff,1.0)
+        call hbuf_put('W3BT',w3lebt,1.0)
 
 #endif /*PNNL_STATS*/
 

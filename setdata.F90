@@ -380,6 +380,13 @@ if(masterproc) then
      coef*100.*qv0(k)/qsatw(tabs0(k),pres(k)) 
  end do
  print *,'  k      z      dz     pres   presi   Tabs     tp     tpl      qt      Qc      Qi      REL' 
+ open(1111, file='sounding.in', form='formatted')
+ write(1111, *) 'z[m]        thm[K]   rt[kg\kg]   u[m\s]   v[m\s]   w[m\s]   ug[m\s]   vg[m\s]   '
+ write(1111, '(1x, 8E14.6)') 0.0, tabs0(1)*prespot(1), q0(1), u0(1)+ug, v0(1)+vg, -999.9, u0(1)+ug, v0(1)+vg
+ do k = 1, nzm
+  write(1111, '(1x, 8E14.6)') z(k), tabs0(k)*prespot(k), q0(k), u0(k)+ug, v0(k)+vg, -999.9, u0(k)+ug, v0(k)+vg
+ end do
+ close(1111)
 endif
 
 if(dosgs) call sgs_init()

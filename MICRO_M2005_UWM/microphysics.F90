@@ -11,7 +11,12 @@ use grid, only: nx,ny,nzm,nz, &  !grid dimensions; nzm = nz-1 # of scalar lvls
      doSAMconditionals, dosatupdnconditionals
 
 use vars, only: pres, rho, dtn, w, t, tlatqi, condavg_mask, &
+#ifdef PNNL_STATS
+     ! Heng Xiao: to get total water flux into the unit needed for CLUBB
+     ncondavg, condavgname, condavglongname, rhow
+#else
      ncondavg, condavgname, condavglongname
+#endif /* PNNL_STATS */
 use params, only: doprecip, docloud
 #ifdef CLUBB
 use sgs_params, only: doclubb
@@ -6057,6 +6062,13 @@ do n = 1,nmicro_fields
       mkwle(k,n) = mkwle(k,n)*tmp(2)*lfac(n) ! resolved flux
       mkwsb(k,n) = mkwsb(k,n)*tmp(1)*lfac(n) ! subgrid flux
       mksed(k,n) = mksed(k,n)*lfac(n) ! sedimentation flux
+#ifdef PNNL_STATS
+      ! Heng Xiao: convert vertical flux of total water into g/kg m/s unit needed for CLUBB input
+      if (n .eq. iqv) then
+        mkwle(k,n) = mkwle(k,n)/rhow(k)/lfac(n)*1.0e3
+        mkwsb(k,n) = mkwsb(k,n)/rhow(k)/lfac(n)*1.0e3
+      end if
+#endif /* PNNL_STATS */
 
       !mstor(k, n) = SUM(micro_field(1:nx,1:ny,k,n))-mstor(k,n)
       mstor(k, n) = SUM(dble(micro_field(1:nx,1:ny,k,n)))-mstor(k,n) !MWSWong: cast to double

@@ -183,6 +183,14 @@ real &
 #endif /*NOT PNNL_STATS*/
 #ifdef PNNL_STATS
     momlediff(nz,3),tadv(nz),tdiff(nz),tlat(nz), tlatqi(nz),qifall(nz),qpfall(nz), &
+    ! Heng Xiao: W3 budget
+    ! w3legrad is a local variable in statistics.F90
+    w3lebt(nz), w3leadv(nz), w3lebuoy(nz), w3lepres(nz), w3lediff(nz), &
+    ! Heng Xiao: SGS <thel'w'> and <qto'w'> at interfacial levels
+    ! thelw, the grid-scale counterpart, is calculated (locally) in statistics.F90
+    ! qtow, the grid-scale counterpart, is calculated (locally) in statistics.F90
+    ! also QTOFLX and QTOFLXS are calculated in microphysics.F90 
+    thelws(nz), qtows(nz), &
     ! MWSWong:THEL budget (thel = theta_l)
     thel(dimx1_s:dimx2_s, dimy1_s:dimy2_s, nzm), &
     theladv(nz), theldiff(nz), thelrad(nz), thellat(nz), theltend(nz),&  

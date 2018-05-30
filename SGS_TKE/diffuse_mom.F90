@@ -43,6 +43,14 @@ if(dostatis) then
 
   call stat_tke(du,tkelediff)
   call stat_mom(du,momlediff)
+#ifdef PNNL_STATS
+  !Heng Xiao w'w'w' budget
+  call stat_w3(du,w3lediff)
+  !Heng Xiao: Shouldn't we add these to the diffusion terms?
+  call setvalue(thelwlediff,nzm,0.)
+  call setvalue(qtogwlediff,nzm,0.)
+  call stat_sw0(du,thelwlediff,qtogwlediff)
+#endif /* PNNL_STATS */
   call setvalue(twlediff,nzm,0.)
   call setvalue(qwlediff,nzm,0.)
   call stat_sw1(du,twlediff,qwlediff)

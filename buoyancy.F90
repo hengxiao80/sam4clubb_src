@@ -65,6 +65,8 @@ if(dostatis) then
   call setvalue(thelwlebuoy,nzm,0.)
   call setvalue(qtogwlebuoy,nzm,0.)
   call stat_sw0(du,thelwlebuoy(1:nzm),qtogwlebuoy(1:nzm))
+  !Heng Xiao w'w'w' budget
+  call stat_w3(du,w3lebuoy)
 #endif /*PNNL_STATS*/
 endif
 

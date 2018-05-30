@@ -593,6 +593,9 @@ do while(nstep.lt.nstop.and.nelapse.gt.0)
            end do
            qthellebt(k)=qthellebt(k)*(1./(dtn*nx*ny))
         end do 
+        !Heng Xiao w'w'w' budget
+        call setvalue( w3lebt, nzm, 0. )
+        call stat_w3_bt(w_curr, w_prev, w3lebt)
 #endif /*PNNL_STATS*/
 
       endif
