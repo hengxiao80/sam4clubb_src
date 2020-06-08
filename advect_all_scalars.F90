@@ -130,7 +130,7 @@ subroutine advect_all_scalars()
            do j=1,ny
              do i=1,nx
 
-              thel(i,j,k) = t2thetal( t(i,j,k), gamaz(k), qpl(i,j,k), &
+              thelcurr(i,j,k) = t2thetal( t(i,j,k), gamaz(k), qpl(i,j,k), &
                                           qci(i,j,k), qpi(i,j,k), prespot(k) )
 
               qtogcurr(i,j,k) = 0.0
@@ -139,14 +139,14 @@ subroutine advect_all_scalars()
                  qtogcurr(i,j,k) = qtogcurr(i,j,k) + flag_wmass(n)*micro_field(i,j,k,n)
               end do
 
-              theladv(k) = theladv(k) + (thel(i,j,k)-thelprev(i,j,k))
+              theladv(k) = theladv(k) + (thelcurr(i,j,k)-thelprev(i,j,k))
               qtogadv(k) = qtogadv(k) + (qtogcurr(i,j,k)-qtogprev(i,j,k))
               
              end do
            end do
          end do
-         call stat_varscalar(thel,thelprev,f0,df0,thel2leadv)
-         call stat_sw2(thel,thelprev,thelwleadv(1:nzm))
+         call stat_varscalar(thelcurr,thelprev,f0,df0,thel2leadv)
+         call stat_sw2(thelcurr,thelprev,thelwleadv(1:nzm))
          call stat_varscalar(qtogcurr,qtogprev,f0_qtog,df0_qtog,qtog2leadv)
          call stat_sw2(qtogcurr,qtogprev,qtogwleadv(1:nzm))
 
@@ -159,7 +159,7 @@ subroutine advect_all_scalars()
             qthelleadv(k)=0.
             do j=1,ny
               do i=1,nx
-                qthel(i,j,k)=(thel(i,j,k)-f0(k))*(micro_field(i,j,k,index_water_vapor)-f0_q(k))
+                qthel(i,j,k)=(thelcurr(i,j,k)-f0(k))*(micro_field(i,j,k,index_water_vapor)-f0_q(k))
                 qthel1(i,j,k)=(thel1(i,j,k)-df0(k))*(q1(i,j,k)-df0_q(k))
                 qthelleadv(k) = qthelleadv(k) + (qthel(i,j,k)-qthel1(i,j,k))/dtn/float(nx*ny)
               end do

@@ -34,8 +34,12 @@ implicit none
 	real u2z(nzm)
 	real v2z(nzm)
 	real w2z(nzm)
-	real w22(nzm)
 	real w3z(nzm)
+#ifdef PNNL_STATS
+	real w22(nzm)
+	real w33(nzm)
+	real w44(nzm)
+#endif
 	real skw(nzm)
 	real t2z(nzm)
 	real tqz(nzm)
@@ -70,6 +74,24 @@ implicit none
 	real qtow(nzm)
 	!Heng Xiao q_t'theta_l'
 	real qtothelz(nzm)
+	!Heng Xiao w'*w'*w'*w'
+	real w44(nzm)
+	!Heng Xiao w'*q'*q'
+	real wqqz(nzm)
+	!Heng Xiao w'*thl'*thl'
+	real wttz(nzm)
+	!Heng Xiao w'*q'*thl'
+	real wqtz(nzm)
+	!Heng Xiao w'*w'*q'
+	real wwqz(nzm)
+	!Heng Xiao w'*w'*thl'
+	real wwtz(nzm)
+	!Heng Xiao w'*w'*qc'
+	real wwqcz(nzm)
+	!Heng Xiao q'*qc'
+	real qqcz(nzm)
+	!Heng Xiao thl'*qc'
+	real tqcz(nzm)
 #endif /*PNNL_STATS*/
 	
 	
@@ -346,17 +368,58 @@ real, dimension(nzm) :: vwp ! vapor water path [ kg / m^2 ]
         wstar3(1) = 0. !bloss
 	qcwle(1) = 0.
 	qiwle(1) = 0.
+#ifdef PNNL_STATS
+    qtow(1) = 0.
+	thelw(1) = 0.
+    wwqcz(1) = 0.
+	 wqqz(1) = 0.
+	 wttz(1) = 0.
+	 wqtz(1) = 0.
+	 wwqz(1) = 0.
+	 wwtz(1) = 0.
+#endif
 	do k=2,nzm
 	 tvwle(k) = 0.
          wstar3(k) = 0. !bloss
 	 qcwle(k) = 0.
 	 qiwle(k) = 0.
+#ifdef PNNL_STATS
+     qtow(k) = 0.
+	 thelw(k) = 0.
+	 wwqcz(k) = 0.
+	 wqqz(k) = 0.
+	 wttz(k) = 0.
+	 wqtz(k) = 0.
+	 wwqz(k) = 0.
+	 wwtz(k) = 0.
+#endif
 	 do j=1,ny
 	  do i=1,nx
 	    tvwle(k) = tvwle(k) + 0.5*w(i,j,k)* &
 		(tvirt(i,j,k-1)-tvz(k-1)+tvirt(i,j,k)-tvz(k))
 	    qcwle(k) = qcwle(k) + 0.5*w(i,j,k)* &
 		(qcl(i,j,k-1)-qcz(k-1)+ qcl(i,j,k)-qcz(k))	  
+#ifdef PNNL_STATS
+	    qtow(k) = qtow(k)+(qv(i,j,k)+qcl(i,j,k)+qv(i,j,k-1)+qcl(i,j,k-1) &
+		                   -q0(k)-q0(k-1)+qi0(k)+qi0(k-1))*w(i,j,k)*0.5
+		thelw(k) = thelw(k)+(thel(i,j,k)+thel(i,j,k-1)-thel0(k)-thel0(k-1))*w(i,j,k)*0.5
+	    wwqcz(k) = wwqcz(k) + 0.5*w(i,j,k)*w(i,j,k)&
+		           (qcl(i,j,k-1)-qcz(k-1)+ qcl(i,j,k)-qcz(k))	  
+		wqqz(k) = wqqz(k) + w(i,j,k)*0.25* &
+		          ((qv(i,j,k-1)+qcl(i,j,k)-(q0(k-1)-qi0(k-1)) &
+		           + qv(i,j,k)+qcl(i,j,k)-(q0(k)-qi0(k)))**2)
+		wttz(k) = wttz(k) + w(i,j,k)*0.25* &
+		          ((thel(i,j,k-1)-thel0(k-1)+thel(i,j,k)-thel0(k))**2)
+		wqtz(k) = wqtz(k) + w(i,j,k)*0.25* &
+		          (qv(i,j,k-1)+qcl(i,j,k)-(q0(k-1)-qi0(k-1)) &
+		           +qv(i,j,k)+qcl(i,j,k)-(q0(k)-qi0(k)))* &
+		          (thel(i,j,k-1)-thel0(k-1)+thel(i,j,k)-thel0(k))
+		wwqz(k) = wwqz(k) + w(i,j,k)*w(i,j,k)*0.5* &
+		          (qv(i,j,k-1)+qcl(i,j,k)-(q0(k-1)-qi0(k-1)) &
+		           +qv(i,j,k)+qcl(i,j,k)-(q0(k)-qi0(k)))
+		wwtz(k) = wwtz(k) + w(i,j,k)*w(i,j,k)*0.5* &
+		          (thel(i,j,k-1)-thel0(k-1)+thel(i,j,k)-thel0(k))
+#endif
 	    qiwle(k) = qiwle(k) + 0.5*w(i,j,k)* &
                 (qci(i,j,k-1)-qiz(k-1)+qci(i,j,k)-qiz(k))
 	    prof1(k)=prof1(k)+rho(k)*0.5* &
@@ -365,7 +428,7 @@ real, dimension(nzm) :: vwp ! vapor water path [ kg / m^2 ]
 	 end do
          wstar3(k) = wstar3(k-1) + 2.5*dz*adzw(k)*bet(k)*tvwle(k) !bloss
 	 tvwle(k) = tvwle(k)*rhow(k)*cp
-	 qcwle(k) = qcwle(k)*rhow(k)*lcond
+	!  qcwle(k) = qcwle(k)*rhow(k)*lcond
 	 qiwle(k) = qiwle(k)*rhow(k)*lcond
 	end do	
 
@@ -375,6 +438,19 @@ real, dimension(nzm) :: vwp ! vapor water path [ kg / m^2 ]
 
         !bloss: UW additions
 	call hbuf_put('WSTAR3',wstar3,factor_xy) !bloss
+#ifdef PNNL_STATS
+    call hbuf_put('QTOW',qtow,1.0e3*factor_xy)
+	call hbuf_put('THELW',thelw,factor_xy)
+	! sgs already in g/kg, so no 1.0e3 in front
+    call hbuf_put('QTOWS',qtows,factor_xy)
+    call hbuf_put('THELWS',thelws,factor_xy)
+	call hbuf_put('WWQC',wwqcz,1.0e3*factor_xy)
+	call hbuf_put('WQQ',wqqz,1.0e6*factor_xy)
+	call hbuf_put('WTT',wttz,factor_xy)
+	call hbuf_put('WQT',wqtz,1.0e3*factor_xy)
+	call hbuf_put('WWQ',wwqz,1.0e3*factor_xy)
+	call hbuf_put('WWT',wwtz,factor_xy)
+#endif
 
 #ifdef UWM_STATS
         do j=1,ny
@@ -396,8 +472,12 @@ real, dimension(nzm) :: vwp ! vapor water path [ kg / m^2 ]
 	 u2z(k) = 0.
 	 v2z(k) = 0.
 	 w2z(k) = 0.
-	 w22(k) = 0.
 	 w3z(k) = 0.
+#ifdef PNNL_STATS
+	 w22(k) = 0.
+	 w33(k) = 0.
+	 w44(k) = 0.
+#endif
 	 aup(k) = 0.
 	 t2z(k) = 0.
 	 tqz(k) = 0.
@@ -413,16 +493,20 @@ real, dimension(nzm) :: vwp ! vapor water path [ kg / m^2 ]
         qto3z(k) = 0. !MWSWong:added
         t3z(k) = 0. !MWSWong:added
 		!Heng Xiao
-		qtow(k) = 0.
-		thelw(k) = 0.
 		qtothelz(k) = 0.
+		qqcz(k) = 0.
+		tqcz(k) = 0.
 #endif /*PNNL_STATS*/
 	 do j=1,ny
 	  do i=1,nx
 	    u2z(k) = u2z(k)+(u(i,j,k)-u0(k))**2	  
 	    v2z(k) = v2z(k)+(v(i,j,k)-v0(k))**2
-	    w2z(k) = w2z(k)+0.5*(w(i,j,k+1)**2+w(i,j,k)**2)
-	    w22(k) = w22(k)+w(i,j,k)**2
+		w2z(k) = w2z(k)+0.5*(w(i,j,k+1)**2+w(i,j,k)**2)
+#ifdef PNNL_STATS
+	    w22(k) = w22(k) + (w(i,j,k)**2)
+	    w33(k) = w33(k) + (w(i,j,k)**3)
+		w44(k) = w44(k) + (w(i,j,k)**4)
+#endif
 	    w3z(k) = w3z(k)+0.5*(w(i,j,k+1)**3+w(i,j,k)**3)	  
 	    t2z(k) = t2z(k)+(t(i,j,k)-t0(k))**2	  
 	    tqz(k) = tqz(k)+(t(i,j,k)-t0(k))*(qv(i,j,k)+qcl(i,j,k)+qci(i,j,k)-q0(k))	  
@@ -442,12 +526,11 @@ real, dimension(nzm) :: vwp ! vapor water path [ kg / m^2 ]
                                   - q0(k)-qp0(k))**3
             t3z(k) = t3z(k) + (t(i,j,k)-t0(k))**3
 		!Heng Xiao
-		if (k .gt. 1) then
-	      qtow(k) = qtow(k)+(qv(i,j,k)+qcl(i,j,k)+qv(i,j,k-1)+qcl(i,j,k-1) &
-		                     -q0(k)-q0(k-1)+qi0(k)+qi0(k-1))*w(i,j,k)*0.5
-	      thelw(k) = thelw(k)+(thel(i,j,k)+thel(i,j,k-1)-thel0(k)-thel0(k-1))*w(i,j,k)*0.5
-		end if
-	    qtothelz(k) = qtothelz(k)+(thel(i,j,k)-thel0(k))*(qv(i,j,k)+qcl(i,j,k)-q0(k)+qi0(k))
+		qtothelz(k) = qtothelz(k)+(thel(i,j,k)-thel0(k)) &
+		                          * (qv(i,j,k)+qcl(i,j,k)-q0(k)+qi0(k))
+		qqcz(k) = qqcz(k) + (qv(i,j,k)+qcl(i,j,k)-q0(k)+qi0(k)) &
+		                    * (qcl(i,j,k)-qcz(k)) 
+		tqcz(k) = tqcz(k) + (thel(i,j,k)-thel0(k))*(qcl(i,j,k)-qcz(k)) 
 #endif /*PNNL_STATS*/
 	    if(w(i,j,k)+w(i,j,k+1).gt.0) aup(k) = aup(k) + 1
 	  end do
@@ -479,9 +562,9 @@ real, dimension(nzm) :: vwp ! vapor water path [ kg / m^2 ]
       !Heng Xiao: The coef1 calculated below is not right.
       !coef1=1./float(nsubdomains)
       coef1 = factor_n*factor_xy
-      do k=1,nzm
-        buffer(k,1)=w2z(k)
-        buffer(k,2)=w3z(k)
+	  do k=1,nzm
+        buffer(k,1)=w22(k)
+		buffer(k,2)=w33(k)
       end do
       call task_sum_real(buffer,buffer1,nzm*2)
       do k=1,nzm
@@ -506,9 +589,13 @@ real, dimension(nzm) :: vwp ! vapor water path [ kg / m^2 ]
 	! Heng Xiao: I decided to output w related stats except w3
 	! on interfacial levels
 	! so that it is easier for CLUBB to read and interpolate
-	!call hbuf_put('W2',w2z,factor_xy)
+#ifdef PNNL_STATS
 	call hbuf_put('W2',w22,factor_xy)
-	call hbuf_put('W3',w3z,factor_xy)
+	call hbuf_put('W3',w33,factor_xy)
+	call hbuf_put('W4',w44,factor_xy)
+#else
+	!call hbuf_put('W2',w2z,factor_xy)
+#endif
 #ifdef PNNL_STATS
 	if (dompi) then
       call hbuf_put('WSKEW',skw,1.)
@@ -535,11 +622,9 @@ real, dimension(nzm) :: vwp ! vapor water path [ kg / m^2 ]
         call hbuf_put('THEL3',thel3z,factor_xy)
         call hbuf_put('THEL2',thel2z,factor_xy)
 		!Heng Xiao
-        call hbuf_put('QTOW',qtow,1.0e3*factor_xy)
-        call hbuf_put('THELW',thelw,factor_xy)
-        call hbuf_put('QTOWS',qtows,factor_xy)
-        call hbuf_put('THELWS',thelws,factor_xy)
         call hbuf_put('QTOTHEL',qtothelz,1.0e3*factor_xy)
+        call hbuf_put('QTQC',qqcz,1.0e6*factor_xy)
+        call hbuf_put('THELQC',tqcz,1.0e3*factor_xy)
 #endif /*PNNL_STATS*/	
 	call hbuf_put('TKE',tkez,factor_xy)
 !-----------------------------------------------------------------
@@ -711,7 +796,71 @@ real, dimension(nzm) :: vwp ! vapor water path [ kg / m^2 ]
           qthellediff(k)=qthellediff(k)-qthellediss(k)
 #endif /*PNNL_STATS*/
 	end do	
-	
+
+! Heng Xiao --- BEGIN
+! This code is added to see if this way of calculating advection of
+! scalar variances/covariances gives results similar to Heinze et al. (2015)
+#ifdef PNNL_STATS
+!   Q*Q advection d(w'q'q')/dz:
+	   fadv(1) = 0.
+	   fadv(nz) = 0.
+	   do k=2,nzm
+        fadv(k)=0.
+        do j=1,ny
+         do i=1,nx
+           fadv(k)=fadv(k)+w(i,j,k)*rhow(k)*0.25* &
+				   ((qv(i,j,k-1)+qcl(i,j,k)-(q0(k-1)-qi0(k-1)) &
+				     + qv(i,j,k)+qcl(i,j,k)-(q0(k)-qi0(k)))**2) &
+         end do
+        end do
+       end do
+       do k=1,nzm
+		coef=-(fadv(k+1)-fadv(k))/(adz(k)*dz*rho(k))
+		q2legrad(k) = q2legrad(k) + q2leadv(k)
+		q2leadv(k)=coef
+		q2legrad(k) = q2legrad(k) - q2leadv(k)
+	   end do  
+
+!   THEL2 advection d(w'thel'thel')/dz:
+       fadv(1) = 0.
+	   fadv(nz) = 0.
+	   do k=2,nzm
+        fadv(k)=0.
+        do j=1,ny
+         do i=1,nx
+           fadv(k)=fadv(k)+w(i,j,k)*rhow(k)*0.25* &
+                   ((thel(i,j,k-1)-thel0(k-1)+thel(i,j,k)-thel0(k))**2)
+         end do
+        end do
+       end do
+       do k=1,nzm
+		coef=-(fadv(k+1)-fadv(k))/(adz(k)*dz*rho(k))
+		thel2legrad(k) = thel2legrad(k) + thel2leadv(k)
+		thel2leadv(k)=coef
+		thel2legrad(k) = thel2legrad(k) - thel2leadv(k)
+	   end do  
+
+!   Q*THL advection d(w'q'thl')/dz:
+       fadv(1) = 0.
+	   fadv(nz) = 0.
+       do k=2,nzm
+        fadv(k)=0.
+        do j=1,ny
+         do i=1,nx
+           fadv(k)=fadv(k)+w(i,j,k)*rhow(k)*0.25* &
+                   ( qv(i,j,k-1)+qcl(i,j,k)-(q0(k-1)-qi0(k-1))+qv(i,j,k)+qcl(i,j,k)-(q0(k)-qi0(k)))* &
+                   ( thel(i,j,k-1)-thel0(k-1)+thel(i,j,k)-thel0(k))
+         end do
+        end do
+       end do
+       do k=1,nzm
+		coef=-(fadv(k+1)-fadv(k))/(adz(k)*dz*rho(k))
+		qthelgrad(k) = qthelgrad(k) + qthelleadv(k)
+		qthelleadv(k)=coef
+		qthelgrad(k) = qthelgrad(k) - qthelleadv(k)
+	   end do  
+#endif
+! Heng Xiao --- END
 
 	call hbuf_put('T2ADVTR',t2leadv,1.)
 	call hbuf_put('T2GRAD',t2legrad,1.)
@@ -867,7 +1016,7 @@ real, dimension(nzm) :: vwp ! vapor water path [ kg / m^2 ]
          fadv(k)=0.
          do j=1,ny
           do i=1,nx
-            fadv(k)=fadv(k)+w(i,j,k)**4*rhow(k)
+            fadv(k)=fadv(k)+(w(i,j,k)**4)*rhow(k)
           end do
          end do
 		 fadv(k) = fadv(k)*factor_xy

@@ -264,6 +264,14 @@ do while(nstep.lt.nstop.and.nelapse.gt.0)
      if (dompi) then
        call averageXY_MPI(thel,dimx1_s,dimx2_s,dimy1_s,dimy2_s,nzm,thelstor)
      end if
+     
+     ! update the thel0 value - HX
+     ! precisely because of the reason May said above and the fact that
+     ! (thel-thel0) is used in the following for calculating thelwlebuoy,
+     ! thelwlediff, thelwleadv before thel and thel0 are recalculated
+     ! in the adv_all_scalars call.
+     thel0 = thelstor
+
 #endif /*PNNL_STATS*/
 
 #endif /*UWM_STATS*/
