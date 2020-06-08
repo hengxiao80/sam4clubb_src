@@ -370,11 +370,11 @@ real, dimension(nzm) :: vwp ! vapor water path [ kg / m^2 ]
     qtow(1) = 0.
 	thelw(1) = 0.
     wwqcz(1) = 0.
-	 wqqz(1) = 0.
-	 wttz(1) = 0.
-	 wqtz(1) = 0.
-	 wwqz(1) = 0.
-	 wwtz(1) = 0.
+	wqqz(1) = 0.
+	wttz(1) = 0.
+	wqtz(1) = 0.
+	wwqz(1) = 0.
+	wwtz(1) = 0.
 #endif
 	do k=2,nzm
 	 tvwle(k) = 0.
@@ -402,18 +402,17 @@ real, dimension(nzm) :: vwp ! vapor water path [ kg / m^2 ]
 		                   -q0(k)-q0(k-1)+qi0(k)+qi0(k-1))*w(i,j,k)*0.5
 		thelw(k) = thelw(k)+(thel(i,j,k)+thel(i,j,k-1)-thel0(k)-thel0(k-1))*w(i,j,k)*0.5
 	    wwqcz(k) = wwqcz(k) + 0.5*w(i,j,k)*w(i,j,k)* &
-		             (qcl(i,j,k-1)-qcz(k-1)+ qcl(i,j,k)-qcz(k))
-		wqqz(k) = wqqz(k) + w(i,j,k)*0.25* &
-		          ((qv(i,j,k-1)+qcl(i,j,k)-(q0(k-1)-qi0(k-1)) &
-		           + qv(i,j,k)+qcl(i,j,k)-(q0(k)-qi0(k)))**2)
-		wttz(k) = wttz(k) + w(i,j,k)*0.25* &
-		          ((thel(i,j,k-1)-thel0(k-1)+thel(i,j,k)-thel0(k))**2)
+		             (qcl(i,j,k-1)-qcz(k-1)+qcl(i,j,k)-qcz(k))
+		wqqz(k) = wqqz(k) + w(i,j,k)*0.5* &
+		          ((qv(i,j,k-1)+qcl(i,j,k-1)-(q0(k-1)-qi0(k-1)))**2 &
+		           + (qv(i,j,k)+qcl(i,j,k)-(q0(k)-qi0(k)))**2)
+		wttz(k) = wttz(k) + w(i,j,k)*0.5* &
+		          ((thel(i,j,k-1)-thel0(k-1))**2+(thel(i,j,k)-thel0(k))**2)
 		wqtz(k) = wqtz(k) + w(i,j,k)*0.25* &
-		          (qv(i,j,k-1)+qcl(i,j,k)-(q0(k-1)-qi0(k-1)) &
-		           +qv(i,j,k)+qcl(i,j,k)-(q0(k)-qi0(k)))* &
-		          (thel(i,j,k-1)-thel0(k-1)+thel(i,j,k)-thel0(k))
+				  ((qv(i,j,k-1)+qcl(i,j,k-1)-(q0(k-1)-qi0(k-1)))*(thel(i,j,k-1)-thel0(k-1)) &
+		           +((qv(i,j,k)+qcl(i,j,k)-(q0(k)-qi0(k)))*(thel(i,j,k)-thel0(k))))
 		wwqz(k) = wwqz(k) + w(i,j,k)*w(i,j,k)*0.5* &
-		          (qv(i,j,k-1)+qcl(i,j,k)-(q0(k-1)-qi0(k-1)) &
+		          (qv(i,j,k-1)+qcl(i,j,k-1)-(q0(k-1)-qi0(k-1)) &
 		           +qv(i,j,k)+qcl(i,j,k)-(q0(k)-qi0(k)))
 		wwtz(k) = wwtz(k) + w(i,j,k)*w(i,j,k)*0.5* &
 		          (thel(i,j,k-1)-thel0(k-1)+thel(i,j,k)-thel0(k))
@@ -471,6 +470,7 @@ real, dimension(nzm) :: vwp ! vapor water path [ kg / m^2 ]
 	 v2z(k) = 0.
 	 w2z(k) = 0.
 	 w3z(k) = 0.
+! Heng Xiao
 #ifdef PNNL_STATS
 	 w22(k) = 0.
 	 w33(k) = 0.
@@ -500,6 +500,7 @@ real, dimension(nzm) :: vwp ! vapor water path [ kg / m^2 ]
 	    u2z(k) = u2z(k)+(u(i,j,k)-u0(k))**2	  
 	    v2z(k) = v2z(k)+(v(i,j,k)-v0(k))**2
 		w2z(k) = w2z(k)+0.5*(w(i,j,k+1)**2+w(i,j,k)**2)
+! Heng Xiao
 #ifdef PNNL_STATS
 	    w22(k) = w22(k) + (w(i,j,k)**2)
 	    w33(k) = w33(k) + (w(i,j,k)**3)
@@ -806,9 +807,9 @@ real, dimension(nzm) :: vwp ! vapor water path [ kg / m^2 ]
         fadv(k)=0.
         do j=1,ny
          do i=1,nx
-           fadv(k)=fadv(k)+w(i,j,k)*rhow(k)*0.25* &
-				   ((qv(i,j,k-1)+qcl(i,j,k)-(q0(k-1)-qi0(k-1)) &
-				     + qv(i,j,k)+qcl(i,j,k)-(q0(k)-qi0(k)))**2)
+           fadv(k)=fadv(k)+w(i,j,k)*rhow(k)*0.5* &
+				   ((qv(i,j,k-1)+qcl(i,j,k-1)-(q0(k-1)-qi0(k-1)))**2 &
+				     + (qv(i,j,k)+qcl(i,j,k)-(q0(k)-qi0(k)))**2)
          end do
         end do
        end do
@@ -826,8 +827,8 @@ real, dimension(nzm) :: vwp ! vapor water path [ kg / m^2 ]
         fadv(k)=0.
         do j=1,ny
          do i=1,nx
-           fadv(k)=fadv(k)+w(i,j,k)*rhow(k)*0.25* &
-                   ((thel(i,j,k-1)-thel0(k-1)+thel(i,j,k)-thel0(k))**2)
+           fadv(k)=fadv(k)+w(i,j,k)*rhow(k)*0.5* &
+                   ((thel(i,j,k-1)-thel0(k-1))**2+(thel(i,j,k)-thel0(k))**2)
          end do
         end do
        end do
@@ -845,10 +846,9 @@ real, dimension(nzm) :: vwp ! vapor water path [ kg / m^2 ]
         fadv(k)=0.
         do j=1,ny
          do i=1,nx
-           fadv(k)=fadv(k)+w(i,j,k)*rhow(k)*0.25* &
-                   (qv(i,j,k-1)+qcl(i,j,k)-(q0(k-1)-qi0(k-1))+ &
-                    qv(i,j,k)+qcl(i,j,k)-(q0(k)-qi0(k)))* &
-                   (thel(i,j,k-1)-thel0(k-1)+thel(i,j,k)-thel0(k))
+           fadv(k)=fadv(k)+w(i,j,k)*rhow(k)*0.5* &
+				   ((qv(i,j,k-1)+qcl(i,j,k-1)-(q0(k-1)-qi0(k-1)))*(thel(i,j,k-1)-thel0(k-1)) &
+				    + (qv(i,j,k)+qcl(i,j,k)-(q0(k)-qi0(k)))*(thel(i,j,k)-thel0(k)))
          end do
         end do
        end do
@@ -1026,6 +1026,7 @@ real, dimension(nzm) :: vwp ! vapor water path [ kg / m^2 ]
          w3leadv(k)=coef
         end do  
 
+! This part is not Heng Xiao's code
  !  Q*THL advection d(w'q'thl')/dz:
         !do k=2,nzm
         ! fadv(k)=0.
