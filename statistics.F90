@@ -74,8 +74,6 @@ implicit none
 	real qtow(nzm)
 	!Heng Xiao q_t'theta_l'
 	real qtothelz(nzm)
-	!Heng Xiao w'*w'*w'*w'
-	real w44(nzm)
 	!Heng Xiao w'*q'*q'
 	real wqqz(nzm)
 	!Heng Xiao w'*thl'*thl'
@@ -398,13 +396,13 @@ real, dimension(nzm) :: vwp ! vapor water path [ kg / m^2 ]
 	    tvwle(k) = tvwle(k) + 0.5*w(i,j,k)* &
 		(tvirt(i,j,k-1)-tvz(k-1)+tvirt(i,j,k)-tvz(k))
 	    qcwle(k) = qcwle(k) + 0.5*w(i,j,k)* &
-		(qcl(i,j,k-1)-qcz(k-1)+ qcl(i,j,k)-qcz(k))	  
+		(qcl(i,j,k-1)-qcz(k-1)+ qcl(i,j,k)-qcz(k))
 #ifdef PNNL_STATS
 	    qtow(k) = qtow(k)+(qv(i,j,k)+qcl(i,j,k)+qv(i,j,k-1)+qcl(i,j,k-1) &
 		                   -q0(k)-q0(k-1)+qi0(k)+qi0(k-1))*w(i,j,k)*0.5
 		thelw(k) = thelw(k)+(thel(i,j,k)+thel(i,j,k-1)-thel0(k)-thel0(k-1))*w(i,j,k)*0.5
-	    wwqcz(k) = wwqcz(k) + 0.5*w(i,j,k)*w(i,j,k)&
-		           (qcl(i,j,k-1)-qcz(k-1)+ qcl(i,j,k)-qcz(k))	  
+	    wwqcz(k) = wwqcz(k) + 0.5*w(i,j,k)*w(i,j,k)* &
+		             (qcl(i,j,k-1)-qcz(k-1)+ qcl(i,j,k)-qcz(k))
 		wqqz(k) = wqqz(k) + w(i,j,k)*0.25* &
 		          ((qv(i,j,k-1)+qcl(i,j,k)-(q0(k-1)-qi0(k-1)) &
 		           + qv(i,j,k)+qcl(i,j,k)-(q0(k)-qi0(k)))**2)
@@ -810,7 +808,7 @@ real, dimension(nzm) :: vwp ! vapor water path [ kg / m^2 ]
          do i=1,nx
            fadv(k)=fadv(k)+w(i,j,k)*rhow(k)*0.25* &
 				   ((qv(i,j,k-1)+qcl(i,j,k)-(q0(k-1)-qi0(k-1)) &
-				     + qv(i,j,k)+qcl(i,j,k)-(q0(k)-qi0(k)))**2) &
+				     + qv(i,j,k)+qcl(i,j,k)-(q0(k)-qi0(k)))**2)
          end do
         end do
        end do
@@ -841,15 +839,16 @@ real, dimension(nzm) :: vwp ! vapor water path [ kg / m^2 ]
 	   end do  
 
 !   Q*THL advection d(w'q'thl')/dz:
-       fadv(1) = 0.
+     fadv(1) = 0.
 	   fadv(nz) = 0.
        do k=2,nzm
         fadv(k)=0.
         do j=1,ny
          do i=1,nx
            fadv(k)=fadv(k)+w(i,j,k)*rhow(k)*0.25* &
-                   ( qv(i,j,k-1)+qcl(i,j,k)-(q0(k-1)-qi0(k-1))+qv(i,j,k)+qcl(i,j,k)-(q0(k)-qi0(k)))* &
-                   ( thel(i,j,k-1)-thel0(k-1)+thel(i,j,k)-thel0(k))
+                   (qv(i,j,k-1)+qcl(i,j,k)-(q0(k-1)-qi0(k-1))+ &
+                    qv(i,j,k)+qcl(i,j,k)-(q0(k)-qi0(k)))* &
+                   (thel(i,j,k-1)-thel0(k-1)+thel(i,j,k)-thel0(k))
          end do
         end do
        end do
