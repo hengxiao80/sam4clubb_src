@@ -408,7 +408,7 @@ real, dimension(nzm) :: vwp ! vapor water path [ kg / m^2 ]
 		           + (qv(i,j,k)+qcl(i,j,k)-(q0(k)-qi0(k)))**2)
 		wttz(k) = wttz(k) + w(i,j,k)*0.5* &
 		          ((thel(i,j,k-1)-thel0(k-1))**2+(thel(i,j,k)-thel0(k))**2)
-		wqtz(k) = wqtz(k) + w(i,j,k)*0.25* &
+		wqtz(k) = wqtz(k) + w(i,j,k)*0.5* &
 				  ((qv(i,j,k-1)+qcl(i,j,k-1)-(q0(k-1)-qi0(k-1)))*(thel(i,j,k-1)-thel0(k-1)) &
 		           +((qv(i,j,k)+qcl(i,j,k)-(q0(k)-qi0(k)))*(thel(i,j,k)-thel0(k))))
 		wwqz(k) = wwqz(k) + w(i,j,k)*w(i,j,k)*0.5* &
