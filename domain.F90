@@ -9,13 +9,20 @@ module domain
        integer, parameter :: nz_gl = 40 ! Number of pressure (scalar) levels
        integer, parameter :: nsubdomains_x  = 1 ! No of subdomains in x
        integer, parameter :: nsubdomains_y  = 1 ! No of subdomains in y
+#elif ATEX
+       integer, parameter :: YES3D = 1  ! Domain dimensionality: 1 - 3D, 0 - 2D
+       integer, parameter :: nx_gl = 256 ! Number of grid points in X
+       integer, parameter :: ny_gl = 256 ! Number of grid points in Y
+       integer, parameter :: nz_gl = 150 ! Number of pressure (scalar) levels
+       integer, parameter :: nsubdomains_x  = 16 ! No of subdomains in x
+       integer, parameter :: nsubdomains_y  = 16 ! No of subdomains in y
 #else
        integer, parameter :: YES3D = 1  ! Domain dimensionality: 1 - 3D, 0 - 2D
-       integer, parameter :: nx_gl = 128 ! Number of grid points in X
-       integer, parameter :: ny_gl = 128 ! Number of grid points in Y
-       integer, parameter :: nz_gl = 128 ! Number of pressure (scalar) levels
+       integer, parameter :: nx_gl = 256 ! Number of grid points in X
+       integer, parameter :: ny_gl = 256 ! Number of grid points in Y
+       integer, parameter :: nz_gl = 75 ! Number of pressure (scalar) levels
        integer, parameter :: nsubdomains_x  = 16 ! No of subdomains in x
-       integer, parameter :: nsubdomains_y  = 8 ! No of subdomains in y
+       integer, parameter :: nsubdomains_y  = 16 ! No of subdomains in y
 #endif /* CLUBB */
 
 

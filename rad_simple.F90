@@ -1,4 +1,3 @@
-
 subroutine rad_simple
  	
 !	Simple Interactive Radiation
@@ -26,10 +25,18 @@ real, parameter :: cp_spec = 1015. ! from DycomsII LES intercomparison specs
 
 if(.not.dolongwave) return
 
+#ifdef ATEX
+coef=84.
+coef1=0.
+f0=0.0
+xk=130.
+#else
 coef=70.
 coef1=22.
 f0=3.75e-6
 xk=85.
+#endif
+ 
 
 do k=1,nzm
 radlwdn(k) =0.
@@ -42,7 +49,18 @@ end do
 
 do i=1,nx
 do j=1,ny
+#ifdef ATEX
 
+   deltaq = 0.
+   qzinf = 0. ! holds accumulated optical depth between z and domain top
+   do k = 1,nzm
+      flux(k) = coef*exp(-qzinf)
+      if(qcl(i,j,k)+qci(i,j,k).gt.0.) deltaq(k) = xk*rho(k)*(qcl(i,j,k)+qci(i,j,k))*adz(k)*dz
+      qzinf = qzinf + deltaq(k) 
+   end do 
+   flux(nz) = coef*exp(-qzinf) 
+
+#else
    ! search for inversion height (highest level where qt=8 g/kg) 
    !  and compute optical depth increments.
    itop = 1
@@ -82,7 +100,7 @@ do j=1,ny
    flux(nz) = coef*exp(-qzinf) + coef1*exp(-qzeroz) &
         + cp_spec*rhow(nz)*f0*(0.25*zi(nz)+0.75*zi(itop)) &
                              *(zi(nz)-zi(itop))**(1./3.)
-
+#endif
    ! note that our flux differs from the specification in that it
    ! uses the local density (rather than the interface density) in
    ! computing the correction to the flux above the inversion. 

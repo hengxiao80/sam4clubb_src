@@ -1,4 +1,3 @@
-
 subroutine forcing
 	
 use vars
@@ -34,6 +33,10 @@ real qtog_avg(nzm), qtog1_avg(nzm)
 #endif /*PNNL_STATS*/
 #endif /*UWM_STATS*/
 
+#ifdef ATEX
+real zibar
+integer k_zibar
+#endif
 
 call t_startf ('forcing')
 
@@ -231,13 +234,41 @@ if(dolargescale.and.time.gt.timelargescale) then
 #endif /*UWM_STATS*/
    coef=(day-dayls(nn))/(dayls(nn+1)-dayls(nn))
    dosubsidence = .false.
+#ifdef ATEX
+   zibar = 0.0
+   k_zibar = 1
+   do k = 1, nzm
+     ! If the layer mean qt equals 6.5e-3, then it is counted as below the inversion.
+     if (q0(k) .lt. 6.5e-3) then
+      k_zibar = k
+      goto 919
+     endif
+   end do
+919 zibar = zi(k_zibar) 
+   if (masterproc) print*, " For ATEX, zibar found! zibar = ", zibar
+#endif
    do k=1,nzm
+#ifdef ATEX
+    dosubsidence = .true.
+    ug0(k)=uu(k,1)+(uu(k,2)-uu(k,1))*coef - ug
+    vg0(k)=vv(k,1)+(vv(k,2)-vv(k,1))*coef - vg
+    if (k .ge. k_zibar) then 
+      wsub(k) = min(0.,-0.0065*(1 - (zi(k)-zibar)/300.))
+      ttend(k) = - 2.315e-5*(1.- (z(k)-zibar)/300.)
+      qtend(k) = 0.0
+    else
+      wsub(k) = -0.0065*zi(k)/zibar
+      ttend(k) = - 2.315e-5*(1.+(1.-z(k)/zibar)/2.)
+      qtend(k) = -1.5e-8
+    endif
+#else
     ttend(k)=tt(k,1)+(tt(k,2)-tt(k,1))*coef
     qtend(k)=qq(k,1)+(qq(k,2)-qq(k,1))*coef
     ug0(k)=uu(k,1)+(uu(k,2)-uu(k,1))*coef - ug
     vg0(k)=vv(k,1)+(vv(k,2)-vv(k,1))*coef - vg
     wsub(k)=ww(k,1)+(ww(k,2)-ww(k,1))*coef
     dosubsidence = dosubsidence .or. wsub(k).ne.0.
+#endif
     do j=1,ny
      do i=1,nx
       t(i,j,k)=t(i,j,k)+ttend(k) * dtn

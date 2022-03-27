@@ -1,4 +1,3 @@
-
 subroutine setperturb
 
 !  Random noise
@@ -113,7 +112,11 @@ select case (ptype)
       do j=1,ny
        do i=1,nx
          rrr=1.-2.*ranf_()
+#ifdef ATEX
+         if(z(k) .le. 810.) then
+#else
          if(z(k).le.1600.) then
+#endif
             t(i,j,k)=t(i,j,k)+0.1*rrr
             micro_field(i,j,k,index_water_vapor)= &
                       micro_field(i,j,k,index_water_vapor)+0.025e-3*rrr

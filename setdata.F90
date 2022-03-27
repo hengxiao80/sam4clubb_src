@@ -247,6 +247,11 @@ do k= 1,nzm
 13 continue
  ug0(k)=u0(k)
  vg0(k)=v0(k)
+ 
+#ifdef ATEX
+  u0(k) = max(u0(k), -8.0)
+#endif
+
 end do
 
 
