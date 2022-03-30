@@ -26,7 +26,7 @@ real, parameter :: cp_spec = 1015. ! from DycomsII LES intercomparison specs
 if(.not.dolongwave) return
 
 #ifdef ATEX
-coef=84.
+coef=74.
 coef1=0.
 f0=0.0
 xk=130.
@@ -39,7 +39,7 @@ xk=85.
  
 
 do k=1,nzm
-radlwdn(k) =0.
+radlwup(k) =0.
 radqrlw(k) =0.
 enddo
 
@@ -53,12 +53,12 @@ do j=1,ny
 
    deltaq = 0.
    qzinf = 0. ! holds accumulated optical depth between z and domain top
-   do k = 1,nzm
-      flux(k) = coef*exp(-qzinf)
+   flux(nz) = coef*exp(-qzinf) 
+   do k = nzm, 1, -1
       if(qcl(i,j,k)+qci(i,j,k).gt.0.) deltaq(k) = xk*rho(k)*(qcl(i,j,k)+qci(i,j,k))*adz(k)*dz
       qzinf = qzinf + deltaq(k) 
+      flux(k) = coef*exp(-qzinf)
    end do 
-   flux(nz) = coef*exp(-qzinf) 
 
 #else
    ! search for inversion height (highest level where qt=8 g/kg) 
@@ -111,7 +111,7 @@ do j=1,ny
    do k=1,nzm
       FTHRL(k)=-(flux(k+1)-flux(k))/cpmassl(k)
       t(i,j,k) = t(i,j,k) + FTHRL(k) * dtn ! add radiative heating to sli
-      radlwdn(k) = radlwdn(k) + flux(k)   ! net lw flux for stats
+      radlwup(k) = radlwup(k) + flux(k)   ! net lw flux for stats
       radqrlw(k) = radqrlw(k) + FTHRL(k)  ! net lw heating for stats
       qrad(i,j,k) = FTHRL(k) ! store radiative heating for 3d output/stepout
    enddo

@@ -241,7 +241,7 @@ if(dolargescale.and.time.gt.timelargescale) then
      ! If the layer mean qt equals 6.5e-3, then it is counted as below the inversion.
      if (q0(k) .lt. 6.5e-3) then
       k_zibar = k
-      goto 919
+      goto 919 ! yea, I know, it is bad ...
      endif
    end do
 919 zibar = zi(k_zibar) 
@@ -254,11 +254,11 @@ if(dolargescale.and.time.gt.timelargescale) then
     vg0(k)=vv(k,1)+(vv(k,2)-vv(k,1))*coef - vg
     if (k .ge. k_zibar) then 
       wsub(k) = min(0.,-0.0065*(1 - (zi(k)-zibar)/300.))
-      ttend(k) = - 2.315e-5*(1.- (z(k)-zibar)/300.)
+      ttend(k) = - (1.- (z(k)-zibar)/300.)*2.315e-5
       qtend(k) = 0.0
     else
       wsub(k) = -0.0065*zi(k)/zibar
-      ttend(k) = - 2.315e-5*(1.+(1.-z(k)/zibar)/2.)
+      ttend(k) = - (1.+(1.-z(k)/zibar)/2.)*2.315e-5
       qtend(k) = -1.5e-8
     endif
 #else
@@ -509,8 +509,11 @@ endif
 !----------------------------------------------------------------------------
 ! Surface flux forcing:
 
+#ifdef ATEX
+if(dosfcforcing) then
+#else
 if(dosfcforcing.and.time.gt.timelargescale) then
-
+#endif
    nn=1
    do i=1,nsfc-1
      if(day.gt.daysfc(i)) then
@@ -535,9 +538,7 @@ if(dosfcforcing.and.time.gt.timelargescale) then
      lhobs = lhobs + fluxq0 * rhow(1)*lcond
      shobs = shobs + fluxt0 * rhow(1)*cp
    end if
-
 endif
-
 !-------------------------------------------------------------------------------
 
 if(.not.dosfcforcing.and.dodynamicocean) then

@@ -15,6 +15,9 @@ module tracers
  use grid
  implicit none
 
+#ifdef ATEX
+ real, parameter :: decay = 1800.0  ! surface tracer decaying time scale set to Heus and Seifert (2013) value
+#endif
  real tracer  (dimx1_s:dimx2_s, dimy1_s:dimy2_s, nzm, 0:ntracers) 
  real fluxbtr (nx, ny, 0:ntracers) ! surface flux of tracers
  real fluxttr (nx, ny, 0:ntracers) ! top boundary flux of tracers
@@ -43,7 +46,11 @@ CONTAINS
  if(nrestart.eq.0) then
 
 ! here ....
-
+#ifdef ATEX
+ tracer = 0.
+ fluxbtr = 1.
+ fluxttr = 0.
+#endif
  end if
 
 ! Specify te tracers' default names:
@@ -66,7 +73,14 @@ CONTAINS
  subroutine tracers_flux()
 
 ! Set surface and top fluxes of tracers. Default is 0 set in setdata.f90
-
+#ifdef ATEX
+  integer n
+  ! ntracers = 1
+  do n = 1,ntracers
+   fluxbtr(:,:,n) = 1.0
+   fluxttr(:,:,n) = 0.0
+  end do
+#endif
  end subroutine tracers_flux
 
 
@@ -76,8 +90,20 @@ CONTAINS
  ! add here a call to a subroutine that does something to tracers besides advection and diffusion.
  ! The transport is done automatically. 
 
+#ifdef ATEX
+  integer i,j,k,n
   trphys = 0. ! Default tendency due to physics. You code should compute this to output statistics.
-
+  do n = 1,ntracers
+   do k = 1, nzm
+    do j=1,ny
+     do i=1,nx
+       tracer(i,j,k,n) = tracer(i,j,k,n)*(1.0 - dtn/decay)
+       trphys(k,n) = trphys(k,n) - tracer(i,j,k,n)*dtn/decay
+     end do
+    end do
+   end do
+  end do
+#endif
  end subroutine tracers_physics
 
 
@@ -117,21 +143,21 @@ CONTAINS
      count = count + 1
      trcount = trcount + 1
      namelist(count) = trim(tracername(ntr))//'ADV'
-     deflist(count) = 'Tendency of '//trim(tracername(ntr)//'due to vertical advection')
+     deflist(count) = 'Tendency of '//trim(tracername(ntr)//' due to vertical advection')
      unitlist(count) = trim(tracerunits(ntr))//'/day'
      status(count) = 1
      average_type(count) = 0
      count = count + 1
      trcount = trcount + 1
      namelist(count) = trim(tracername(ntr))//'DIFF'
-     deflist(count) = 'Tendency of '//trim(tracername(ntr)//'due to vertical SGS transport')
+     deflist(count) = 'Tendency of '//trim(tracername(ntr)//' due to vertical SGS transport')
      unitlist(count) = trim(tracername(ntr))//'/day'
      status(count) = 1
      average_type(count) = 0
      count = count + 1
      trcount = trcount + 1
      namelist(count) = trim(tracername(ntr))//'PHYS'
-     deflist(count) = 'Tendency of '//trim(tracername(ntr)//'due to physics')
+     deflist(count) = 'Tendency of '//trim(tracername(ntr)//' due to physics')
      unitlist(count) = trim(tracername(ntr))//'/day'
      status(count) = 1
      average_type(count) = 0

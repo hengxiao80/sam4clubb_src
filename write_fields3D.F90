@@ -1,12 +1,16 @@
      
 subroutine write_fields3D
-	
+
 use vars
 #ifdef CLUBB
 use clubbvars
 use sgs_params
 #endif
 use rad, only: qrad
+#ifdef ATEX
+use domain
+use tracers, only: tracer, tracername
+#endif
 use params
 use microphysics, only: nmicro_fields, micro_field, flag_number, &
      flag_micro3Dout, mkname, mklongname, mkunits, mkoutputscale, &
@@ -44,7 +48,9 @@ if(docloud) nfields=nfields+SUM(flag_micro3Dout)-flag_micro3Dout(index_water_vap
 if((dolongwave.or.doshortwave).and..not.doradhomo) nfields=nfields+1
 if(compute_reffc.and.(dolongwave.or.doshortwave).and.rad3Dout) nfields=nfields+1
 if(compute_reffi.and.(dolongwave.or.doshortwave).and.rad3Dout) nfields=nfields+1
-
+#ifdef ATEX
+nfields = nfields + ntracers
+#endif
 nfields1=0
 
 
@@ -282,6 +288,23 @@ if(docloud) then
                                  save3Dbin,dompi,rank,nsubdomains)
 end if
 
+#ifdef ATEX
+  do n = 1, ntracers
+    nfields1=nfields1+1
+    do k=1,nzm
+      do j=1,ny
+        do i=1,nx
+          tmp(i,j,k)=tracer(i,j,k,n)
+        end do
+      end do
+    end do
+    name=trim(tracername(n))
+    long_name=trim(tracername(n))
+    units='kg/kg'
+    call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
+                                  save3Dbin,dompi,rank,nsubdomains)
+  end do
+#endif
 
 if(doprecip) then
   nfields1=nfields1+1
