@@ -10,6 +10,9 @@ use rad, only: qrad
 #ifdef ATEX
 use domain
 use tracers, only: tracer, tracername
+#elif DYCOMSRF01
+use domain
+use tracers, only: tracer, tracername
 #endif
 use params
 use microphysics, only: nmicro_fields, micro_field, flag_number, &
@@ -49,6 +52,8 @@ if((dolongwave.or.doshortwave).and..not.doradhomo) nfields=nfields+1
 if(compute_reffc.and.(dolongwave.or.doshortwave).and.rad3Dout) nfields=nfields+1
 if(compute_reffi.and.(dolongwave.or.doshortwave).and.rad3Dout) nfields=nfields+1
 #ifdef ATEX
+nfields = nfields + ntracers
+#elif DYCOMSRF01
 nfields = nfields + ntracers
 #endif
 nfields1=0
@@ -289,6 +294,22 @@ if(docloud) then
 end if
 
 #ifdef ATEX
+  do n = 1, ntracers
+    nfields1=nfields1+1
+    do k=1,nzm
+      do j=1,ny
+        do i=1,nx
+          tmp(i,j,k)=tracer(i,j,k,n)
+        end do
+      end do
+    end do
+    name=trim(tracername(n))
+    long_name=trim(tracername(n))
+    units='kg/kg'
+    call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
+                                  save3Dbin,dompi,rank,nsubdomains)
+  end do
+#elif DYCOMSRF01
   do n = 1, ntracers
     nfields1=nfields1+1
     do k=1,nzm

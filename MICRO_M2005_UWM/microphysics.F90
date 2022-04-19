@@ -1983,7 +1983,11 @@ call compute_chi_eta( theta_l, micro_field(1:nx,1:ny,1:nzm,iqv), pres, prespot,&
                       chi, eta )
 
 #endif /*UWM_STATS*/
-#ifndef ATEX
+#ifdef ATEX
+! Nothing
+#elif DYCOMSRF01
+! Nothing
+#else
 if(mod(nstep,nsave3D).eq.0.and.nstep.ge.nsave3Dstart.and.nstep.le.nsave3Dend) then
   call write_3d_micro_fields()
   call write_3d_micro_fields_frzmr()
