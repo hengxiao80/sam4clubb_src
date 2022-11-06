@@ -7,10 +7,14 @@ use clubbvars
 use sgs_params
 #endif
 use rad, only: qrad
+use sgs, only: tke
 #ifdef ATEX
 use domain
 use tracers, only: tracer, tracername
 #elif DYCOMSRF01
+use domain
+use tracers, only: tracer, tracername
+#elif BOMEX
 use domain
 use tracers, only: tracer, tracername
 #endif
@@ -35,7 +39,7 @@ real(4) tmp(nx,ny,nzm)
 real, external :: LIN_INT
 #endif
 
-nfields=8 ! number of 3D fields to save
+nfields= 9 ! number of 3D fields to save
 #ifdef CLUBB
 if( .not.docloud .and. .not.(doclubb.or.doclubbnoninter ) ) nfields=nfields-1 ! dschanen UWM 19 June
 #else
@@ -55,7 +59,10 @@ if(compute_reffi.and.(dolongwave.or.doshortwave).and.rad3Dout) nfields=nfields+1
 nfields = nfields + ntracers
 #elif DYCOMSRF01
 nfields = nfields + ntracers
+#elif BOMEX
+nfields = nfields + ntracers
 #endif
+
 nfields1=0
 
 
@@ -209,6 +216,19 @@ end if ! masterproc.or.output_sep
   call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
                                  save3Dbin,dompi,rank,nsubdomains)
 
+  nfields1=nfields1+1
+  do k=1,nzm
+   do j=1,ny
+    do i=1,nx
+      tmp(i,j,k)=tke(i,j,k)
+    end do
+   end do
+  end do
+  name='TKES'
+  long_name='SGS TKE'
+  units='m^2/s^2'
+  call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
+                                 save3Dbin,dompi,rank,nsubdomains)
 
 if((dolongwave.or.doshortwave).and..not.doradhomo) then
   nfields1=nfields1+1
@@ -225,6 +245,7 @@ if((dolongwave.or.doshortwave).and..not.doradhomo) then
   call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
                                  save3Dbin,dompi,rank,nsubdomains)
 end if
+
 if(compute_reffc.and.(dolongwave.or.doshortwave).and.rad3Dout) then
   nfields1=nfields1+1
   tmp(1:nx,1:ny,1:nzm)=Get_reffc()
@@ -234,6 +255,7 @@ if(compute_reffc.and.(dolongwave.or.doshortwave).and.rad3Dout) then
   call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
                                  save3Dbin,dompi,rank,nsubdomains)
 end if
+
 if(compute_reffi.and.(dolongwave.or.doshortwave).and.rad3Dout) then
   nfields1=nfields1+1
   tmp(1:nx,1:ny,1:nzm)=Get_reffi()
@@ -310,6 +332,22 @@ end if
                                   save3Dbin,dompi,rank,nsubdomains)
   end do
 #elif DYCOMSRF01
+  do n = 1, ntracers
+    nfields1=nfields1+1
+    do k=1,nzm
+      do j=1,ny
+        do i=1,nx
+          tmp(i,j,k)=tracer(i,j,k,n)
+        end do
+      end do
+    end do
+    name=trim(tracername(n))
+    long_name=trim(tracername(n))
+    units='kg/kg'
+    call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
+                                  save3Dbin,dompi,rank,nsubdomains)
+  end do
+#elif BOMEX
   do n = 1, ntracers
     nfields1=nfields1+1
     do k=1,nzm

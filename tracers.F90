@@ -19,6 +19,8 @@ module tracers
  real, parameter :: decay = 1800.0  ! surface tracer decaying time scale set to Heus and Seifert (2013) value
 #elif DYCOMSRF01
  real, parameter :: decay = 600.0  ! surface tracer decaying time scale set to 10 minutes following the eddy turnover time estimates in Stevens et al. (2005)
+#elif BOMEX
+ real, parameter :: decay = 1800.0  ! surface tracer decaying time scale set to Heus and Seifert (2013) value
 #endif
  real tracer  (dimx1_s:dimx2_s, dimy1_s:dimy2_s, nzm, 0:ntracers) 
  real fluxbtr (nx, ny, 0:ntracers) ! surface flux of tracers
@@ -53,6 +55,10 @@ CONTAINS
  fluxbtr = 1.
  fluxttr = 0.
 #elif DYCOMSRF01
+ tracer = 0.
+ fluxbtr = 1.
+ fluxttr = 0.
+#elif BOMEX
  tracer = 0.
  fluxbtr = 1.
  fluxttr = 0.
@@ -93,6 +99,13 @@ CONTAINS
    fluxbtr(:,:,n) = 1.0
    fluxttr(:,:,n) = 0.0
   end do
+#elif BOMEX
+  integer n
+  ! ntracers = 1
+  do n = 1,ntracers
+   fluxbtr(:,:,n) = 1.0
+   fluxttr(:,:,n) = 0.0
+  end do
 #endif
  end subroutine tracers_flux
 
@@ -117,6 +130,19 @@ CONTAINS
    end do
   end do
 #elif DYCOMSRF01
+  integer i,j,k,n
+  trphys = 0. ! Default tendency due to physics. You code should compute this to output statistics.
+  do n = 1,ntracers
+   do k = 1, nzm
+    do j=1,ny
+     do i=1,nx
+       tracer(i,j,k,n) = tracer(i,j,k,n)*(1.0 - dtn/decay)
+       trphys(k,n) = trphys(k,n) - tracer(i,j,k,n)*dtn/decay
+     end do
+    end do
+   end do
+  end do
+#elif BOMEX
   integer i,j,k,n
   trphys = 0. ! Default tendency due to physics. You code should compute this to output statistics.
   do n = 1,ntracers
