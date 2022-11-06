@@ -26,8 +26,8 @@ module domain
 #elif BOMEX
        integer, parameter :: YES3D = 1  ! Domain dimensionality: 1 - 3D, 0 - 2D
        ! integer, parameter :: nx_gl = 1024 ! Number of grid points in X
-       ! integer, parameter :: nx_gl = 1024 ! Number of grid points in X
-       integer, parameter :: ny_gl = 256 ! Number of grid points in Y
+       ! integer, parameter :: ny_gl = 1024 ! Number of grid points in Y
+       integer, parameter :: nx_gl = 256 ! Number of grid points in X
        integer, parameter :: ny_gl = 256 ! Number of grid points in Y
        ! integer, parameter :: nz_gl = 319 ! Number of pressure (scalar) levels
        integer, parameter :: nz_gl = 520 ! Number of pressure (scalar) levels
