@@ -363,6 +363,22 @@ end if
     call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
                                   save3Dbin,dompi,rank,nsubdomains)
   end do
+#elif HISCALE
+  do n = 1, ntracers
+    nfields1=nfields1+1
+    do k=1,nzm
+      do j=1,ny
+        do i=1,nx
+          tmp(i,j,k)=tracer(i,j,k,n)
+        end do
+      end do
+    end do
+    name=trim(tracername(n))
+    long_name=trim(tracername(n))
+    units='kg/kg'
+    call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
+                                  save3Dbin,dompi,rank,nsubdomains)
+  end do
 #endif
 
 if(doprecip) then

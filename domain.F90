@@ -25,16 +25,18 @@ module domain
        integer, parameter :: nsubdomains_y  = 16 ! No of subdomains in y
 #elif BOMEX
        integer, parameter :: YES3D = 1  ! Domain dimensionality: 1 - 3D, 0 - 2D
-       ! integer, parameter :: nx_gl = 1024 ! Number of grid points in X
-       ! integer, parameter :: ny_gl = 1024 ! Number of grid points in Y
-       integer, parameter :: nx_gl = 256 ! Number of grid points in X
-       integer, parameter :: ny_gl = 256 ! Number of grid points in Y
-       ! integer, parameter :: nz_gl = 319 ! Number of pressure (scalar) levels
-       integer, parameter :: nz_gl = 520 ! Number of pressure (scalar) levels
-       ! integer, parameter :: nsubdomains_x  = 32 ! No of subdomains in x
-       ! integer, parameter :: nsubdomains_y  = 32 ! No of subdomains in y
-       integer, parameter :: nsubdomains_x  = 16 ! No of subdomains in x
-       integer, parameter :: nsubdomains_y  = 16 ! No of subdomains in y
+       integer, parameter :: nx_gl = 512 ! Number of grid points in X
+       integer, parameter :: ny_gl = 512 ! Number of grid points in Y
+       integer, parameter :: nz_gl = 300 ! dz = 10 m
+       integer, parameter :: nsubdomains_x  = 32 ! No of subdomains in x
+       integer, parameter :: nsubdomains_y  = 32 ! No of subdomains in y
+#elif HISCALE
+       integer, parameter :: YES3D = 1  ! Domain dimensionality: 1 - 3D, 0 - 2D
+       integer, parameter :: nx_gl = 512 ! Number of grid points in X
+       integer, parameter :: ny_gl = 512 ! Number of grid points in Y
+       integer, parameter :: nz_gl = 200 ! Number of pressure (scalar) levels 
+       integer, parameter :: nsubdomains_x  = 32 ! No of subdomains in x
+       integer, parameter :: nsubdomains_y  = 32 ! No of subdomains in y
 #else
        integer, parameter :: YES3D = 1  ! Domain dimensionality: 1 - 3D, 0 - 2D
        integer, parameter :: nx_gl = 256 ! Number of grid points in X

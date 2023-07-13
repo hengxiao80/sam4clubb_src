@@ -72,7 +72,7 @@ do j=1,ny
       if(qcl(i,j,k)+qci(i,j,k).gt.0.) deltaq(k) = xk*rho(k)*(qcl(i,j,k)+qci(i,j,k))*adz(k)*dz
 
       ! inversion height is top of highest layer w/q>8g/kg.
-      if(qv(i,j,k)+qci(i,j,k)+qci(i,j,k).gt.0.008) itop=max(itop,k+1) ! note zi(k+1) is inversion hgt
+      if(qv(i,j,k)+qcl(i,j,k)+qci(i,j,k).gt.0.008) itop=max(itop,k+1) ! note zi(k+1) is inversion hgt
 
       ! accumulate optical depth in qzinf
       qzinf = qzinf + deltaq(k) 
