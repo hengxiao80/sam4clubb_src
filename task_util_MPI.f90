@@ -25,23 +25,32 @@
 
 	if(dompi) then
 !          call MPI_ABORT(MPI_COMM_WORLD, rc, ierr)
-          call MPI_FINALIZE(ierr)	  
+!bloss          call MPI_FINALIZE(ierr)  
 	endif
 
-        call exit(999) ! to avolid resubmission when finished
+!bloss: call task_stop instead
+!bloss        call exit(999) ! to avolid resubmission when finished
+	call task_stop()
 
 	end
 !----------------------------------------------------------------------
 	subroutine task_stop()
 	
-        use grid, only: dompi,nstep,nstop
+        use grid, only: dompi,nstep,nstop,nelapse
 	include 'mpif.h'	
 	integer ierr
 
 	if(dompi) then
           call MPI_FINALIZE(ierr)	  
 	endif
-	call exit(0)
+
+	if(nstep.ge.nstop) then
+           call exit(9) ! avoid resubmission when finished
+        elseif(nelapse.eq.0) then
+           call exit(0) !bloss: clean exit condition for restart
+        else
+           call exit(1) !bloss: avoid resubmission if ending in error
+        end if
 
 	end
 !----------------------------------------------------------------------
@@ -72,6 +81,38 @@
         integer ierr
 
         call MPI_BCAST(buffer,length,MPI_REAL,rank_from,MPI_COMM_WORLD,ierr)
+
+        return
+        end
+
+!----------------------------------------------------------------------
+
+        subroutine task_bcast_real8(rank_from,buffer,length)
+        implicit none
+        include 'mpif.h'
+
+        integer rank_from       ! broadcasting task's rank
+        real*8 buffer(*)          ! buffer of data
+        integer length          ! buffers' length
+        integer ierr
+
+        call MPI_BCAST(buffer,length,mpi_double_precision,rank_from,MPI_COMM_WORLD,ierr)
+
+        return
+        end
+
+!----------------------------------------------------------------------
+
+        subroutine task_bcast_integer(rank_from,buffer,length)
+        implicit none
+        include 'mpif.h'
+
+        integer rank_from       ! broadcasting task's rank
+        integer buffer(*)          ! buffer of data
+        integer length          ! buffers' length
+        integer ierr
+
+        call MPI_BCAST(buffer,length,MPI_INTEGER,rank_from,MPI_COMM_WORLD,ierr)
 
         return
         end

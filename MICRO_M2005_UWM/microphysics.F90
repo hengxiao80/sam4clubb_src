@@ -1596,8 +1596,8 @@ end if !doprecip is false
     endif
 
   endif
-#endif /*UWM_STATS*/
 endif
+#endif /*UWM_STATS*/
 
      ! update microphysical quantities in this grid column
       if(doprecip) then
@@ -1988,6 +1988,8 @@ call compute_chi_eta( theta_l, micro_field(1:nx,1:ny,1:nzm,iqv), pres, prespot,&
 #elif DYCOMSRF01
 ! Nothing
 #elif BOMEX
+! Nothing
+#elif HISCALE
 ! Nothing
 #else
 if(mod(nstep,nsave3D).eq.0.and.nstep.ge.nsave3Dstart.and.nstep.le.nsave3Dend) then
@@ -2967,13 +2969,15 @@ call add_to_namelist(count,microcount,name,longname,units,0)
 
 
 
-#ifndef UWM_STATS
+#ifndef UWM_STATS_MICRO
 if(masterproc) then
    write(*,*) 'Added ', microcount, ' arrays to statistics for M2005 microphysics'
 end if
-#endif /*UWM_STATS*/
+#endif /*UWM_STATS_MICRO*/
 
-#ifdef UWM_STATS
+print*, " Before UWM_STATS - total # of stat output: ", count, microcount
+
+#ifdef UWM_STATS_MICRO
     
 
 !----------------------------
@@ -5926,8 +5930,9 @@ end if !doicemicro
 
 if(masterproc) then
    write(*,*) 'Added ', microcount, ' arrays to statistics for M2005 microphysics'
+   print*, " Before end of micro_hbuf_init - total # of stat output: ", count
 end if
-#endif /*UWM_STATS*/
+#endif /*UWM_STATS_MICRO*/
 
 end subroutine micro_hbuf_init
 
@@ -6278,7 +6283,7 @@ else
 end if
 
 
-#ifdef UWM_STATS
+#ifdef UWM_STATS_MICRO
 ! In micro arrays, indicies for hydrometeor
  rc_pts = 1 
  rr_pts = 2
@@ -6694,7 +6699,7 @@ endif
   end do
   
   
-#endif /* UWM_STATS */
+#endif /* UWM_STATS_MICRO */
 
 ! Microphysical process rates +++mhwnag
    call hbuf_put('PRC', mPRC, factor_xy)
@@ -6793,7 +6798,7 @@ endif
 
 
 
-#ifdef UWM_STATS
+#ifdef UWM_STATS_MICRO
 ! Write out each hydrometeor fraction
 do n = 1,nfrac_fields
   do m = 1,nfractions
@@ -8710,7 +8715,7 @@ if (doicemicro) then
   endif !dograupel
 endif !doicemicro
 
-#endif /*UWM_STATS*/
+#endif /*UWM_STATS_MICRO*/
 
 call t_stopf ('micro_statistics')
 

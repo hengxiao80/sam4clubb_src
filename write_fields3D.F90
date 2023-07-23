@@ -6,8 +6,10 @@ use vars
 use clubbvars
 use sgs_params
 #endif
+
 use rad, only: qrad
 use sgs, only: tke
+
 #ifdef ATEX
 use domain
 use tracers, only: tracer, tracername
@@ -17,7 +19,11 @@ use tracers, only: tracer, tracername
 #elif BOMEX
 use domain
 use tracers, only: tracer, tracername
+#elif HISCALE
+use domain
+use tracers, only: tracer, tracername
 #endif
+
 use params
 use microphysics, only: nmicro_fields, micro_field, flag_number, &
      flag_micro3Dout, mkname, mklongname, mkunits, mkoutputscale, &
@@ -55,11 +61,14 @@ if(docloud) nfields=nfields+SUM(flag_micro3Dout)-flag_micro3Dout(index_water_vap
 if((dolongwave.or.doshortwave).and..not.doradhomo) nfields=nfields+1
 if(compute_reffc.and.(dolongwave.or.doshortwave).and.rad3Dout) nfields=nfields+1
 if(compute_reffi.and.(dolongwave.or.doshortwave).and.rad3Dout) nfields=nfields+1
+
 #ifdef ATEX
 nfields = nfields + ntracers
 #elif DYCOMSRF01
 nfields = nfields + ntracers
 #elif BOMEX
+nfields = nfields + ntracers
+#elif HISCALE
 nfields = nfields + ntracers
 #endif
 

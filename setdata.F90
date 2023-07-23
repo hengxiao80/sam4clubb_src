@@ -17,7 +17,7 @@ real presr(nz), qc0(nzm)!,qi0(nzm)  !MWSWong: qi0 set in vars.F90
 #else
 real presr(nz), qc0(nzm),qi0(nzm)	
 #endif
-parameter (ndmax = 1000)
+parameter (ndmax = 4000)
 real zz(ndmax),tt(ndmax),qq(ndmax),uu(ndmax),vv(ndmax) 
 real zz1(ndmax),tt1(ndmax),qq1(ndmax),uu1(ndmax),vv1(ndmax) 
 real rrr1,rrr2, pres1, pp(ndmax),ta(ndmax)
