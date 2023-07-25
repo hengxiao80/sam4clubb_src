@@ -57,7 +57,8 @@ if( doclubb ) nfields=nfields+11 ! dschanen UWM 28 May 2008
 #endif
 !bloss: add 3D outputs for microphysical fields specified by flag_micro3Dout
 !       except for water vapor (already output as a SAM default).
-if(docloud) nfields=nfields+SUM(flag_micro3Dout)-flag_micro3Dout(index_water_vapor)
+! turning off 3D micro prognostic variable output for HISCALE tracking run - HX
+! if(docloud) nfields=nfields+SUM(flag_micro3Dout)-flag_micro3Dout(index_water_vapor)
 if((dolongwave.or.doshortwave).and..not.doradhomo) nfields=nfields+1
 if(compute_reffc.and.(dolongwave.or.doshortwave).and.rad3Dout) nfields=nfields+1
 if(compute_reffi.and.(dolongwave.or.doshortwave).and.rad3Dout) nfields=nfields+1
@@ -406,26 +407,26 @@ if(doprecip) then
                                  save3Dbin,dompi,rank,nsubdomains)
 end if
 
-
-do n = 1,nmicro_fields
-   if(docloud.AND.flag_micro3Dout(n).gt.0.AND.n.ne.index_water_vapor) then
-      nfields1=nfields1+1
-      do k=1,nzm
-         do j=1,ny
-            do i=1,nx
-               tmp(i,j,k)=micro_field(i,j,k,n)*mkoutputscale(n)
-            end do
-         end do
-         ! remove factor of rho from number, if this field is a number concentration
-         if(flag_number(n).gt.0) tmp(:,:,k) = tmp(:,:,k)*rho(k)
-      end do
-      name=TRIM(mkname(n))
-      long_name=TRIM(mklongname(n))
-      units=TRIM(mkunits(n))
-      call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
-           save3Dbin,dompi,rank,nsubdomains)
-   end if
-end do
+! turning off 3D micro prognostic variable output for HISCALE tracking run - HX
+! do n = 1,nmicro_fields
+!    if(docloud.AND.flag_micro3Dout(n).gt.0.AND.n.ne.index_water_vapor) then
+!       nfields1=nfields1+1
+!       do k=1,nzm
+!          do j=1,ny
+!             do i=1,nx
+!                tmp(i,j,k)=micro_field(i,j,k,n)*mkoutputscale(n)
+!             end do
+!          end do
+!          ! remove factor of rho from number, if this field is a number concentration
+!          if(flag_number(n).gt.0) tmp(:,:,k) = tmp(:,:,k)*rho(k)
+!       end do
+!       name=TRIM(mkname(n))
+!       long_name=TRIM(mklongname(n))
+!       units=TRIM(mkunits(n))
+!       call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
+!            save3Dbin,dompi,rank,nsubdomains)
+!    end if
+! end do
 #ifdef CLUBB
 if( doclubb ) then ! dschanen UWM 28 May 2008
 
