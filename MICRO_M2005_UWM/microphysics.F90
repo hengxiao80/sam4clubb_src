@@ -2862,57 +2862,57 @@ longname = 'CLOUD DROP FORMATION BY AEROSOL ACTIVATION'
 units = '#/kg/s'
 call add_to_namelist(count,microcount,name,longname,units,0)
 
-name = 'SIZEFIX_NR'
+name = 'SFIX_NR'
 longname = 'ADJUST RAIN # FOR LARGE/SMALL DROPS'
 units = '#/kg/s'
 call add_to_namelist(count,microcount,name,longname,units,0)
 
-name = 'SIZEFIX_NC'
+name = 'SFIX_NC'
 longname = 'ADJUST CLOUD # FOR LARGE/SMALL DROPS'
 units = '#/kg/s'
 call add_to_namelist(count,microcount,name,longname,units,0)
 
-name = 'SIZEFIX_NI'
+name = 'SFIX_NI'
 longname = 'ADJUST ICE # FOR LARGE/SMALL DROPS'
 units = '#/kg/s'
 call add_to_namelist(count,microcount,name,longname,units,0)
 
-name = 'SIZEFIX_NS'
+name = 'SFIX_NS'
 longname = 'ADJUST SNOW # FOR LARGE/SMALL DROPS'
 units = '#/kg/s'
 call add_to_namelist(count,microcount,name,longname,units,0)
 
-name = 'SIZEFIX_NG'
+name = 'SFIX_NG'
 longname = 'ADJUST GRAUPEL # FOR LARGE/SMALL DROPS'
 units = '#/kg/s'
 call add_to_namelist(count,microcount,name,longname,units,0)
 
-name = 'NEGFIX_NR'
+name = 'NFIX_NR'
 longname = 'ADJUST RAIN # TO REMOVE NEGATIVE VALUES'
 units = '#/kg/s'
 call add_to_namelist(count,microcount,name,longname,units,0)
 
-name = 'NEGFIX_NC'
+name = 'NFIX_NC'
 longname = 'ADJUST CLOUD # TO REMOVE NEGATIVE VALUES'
 units = '#/kg/s'
 call add_to_namelist(count,microcount,name,longname,units,0)
 
-name = 'NEGFIX_NI'
+name = 'NFIX_NI'
 longname = 'ADJUST ICE # TO REMOVE NEGATIVE VALUES'
 units = '#/kg/s'
 call add_to_namelist(count,microcount,name,longname,units,0)
 
-name = 'NEGFIX_NS'
+name = 'NFIX_NS'
 longname = 'ADJUST SNOW # TO REMOVE NEGATIVE VALUES'
 units = '#/kg/s'
 call add_to_namelist(count,microcount,name,longname,units,0)
 
-name = 'NEGFIX_NG'
+name = 'NFIX_NG'
 longname = 'ADJUST GRAUPEL # TO REMOVE NEGATIVE VALUES'
 units = '#/kg/s'
 call add_to_namelist(count,microcount,name,longname,units,0)
 
-name = 'NIM_MORR_CL'
+name = 'NIM_CL'
 longname = 'CLIP LARGE ICE NUMBER CONCENTRATIONS'
 units = '#/kg/s'
 call add_to_namelist(count,microcount,name,longname,units,0)
@@ -2974,8 +2974,6 @@ if(masterproc) then
    write(*,*) 'Added ', microcount, ' arrays to statistics for M2005 microphysics'
 end if
 #endif /*UWM_STATS_MICRO*/
-
-print*, " Before UWM_STATS - total # of stat output: ", count, microcount
 
 #ifdef UWM_STATS_MICRO
     
@@ -5930,7 +5928,6 @@ end if !doicemicro
 
 if(masterproc) then
    write(*,*) 'Added ', microcount, ' arrays to statistics for M2005 microphysics'
-   print*, " Before end of micro_hbuf_init - total # of stat output: ", count
 end if
 #endif /*UWM_STATS_MICRO*/
 
@@ -6773,17 +6770,17 @@ endif
    call hbuf_put('NSUBG', mNSUBG, factor_xy)
    call hbuf_put('NACT', mNACT, factor_xy)
 
-   call hbuf_put('SIZEFIX_NR', mSIZEFIX_NR, factor_xy)
-   call hbuf_put('SIZEFIX_NC', mSIZEFIX_NC, factor_xy)
-   call hbuf_put('SIZEFIX_NI', mSIZEFIX_NI, factor_xy)
-   call hbuf_put('SIZEFIX_NS', mSIZEFIX_NS, factor_xy)
-   call hbuf_put('SIZEFIX_NG', mSIZEFIX_NG, factor_xy)
-   call hbuf_put('NEGFIX_NR', mNEGFIX_NR, factor_xy)
-   call hbuf_put('NEGFIX_NC', mNEGFIX_NC, factor_xy)
-   call hbuf_put('NEGFIX_NI', mNEGFIX_NI, factor_xy)
-   call hbuf_put('NEGFIX_NS', mNEGFIX_NS, factor_xy)
-   call hbuf_put('NEGFIX_NG', mNEGFIX_NG, factor_xy)
-   call hbuf_put('NIM_MORR_CL', mNIM_MORR_CL, factor_xy)
+   call hbuf_put('SFIX_NR', mSIZEFIX_NR, factor_xy)
+   call hbuf_put('SFIX_NC', mSIZEFIX_NC, factor_xy)
+   call hbuf_put('SFIX_NI', mSIZEFIX_NI, factor_xy)
+   call hbuf_put('SFIX_NS', mSIZEFIX_NS, factor_xy)
+   call hbuf_put('SFIX_NG', mSIZEFIX_NG, factor_xy)
+   call hbuf_put('NFIX_NR', mNEGFIX_NR, factor_xy)
+   call hbuf_put('NFIX_NC', mNEGFIX_NC, factor_xy)
+   call hbuf_put('NFIX_NI', mNEGFIX_NI, factor_xy)
+   call hbuf_put('NFIX_NS', mNEGFIX_NS, factor_xy)
+   call hbuf_put('NFIX_NG', mNEGFIX_NG, factor_xy)
+   call hbuf_put('NIM_CL', mNIM_MORR_CL, factor_xy)
 
    call hbuf_put('QC_INST', mQC_INST, factor_xy)
    call hbuf_put('QR_INST', mQR_INST, factor_xy)
