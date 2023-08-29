@@ -16,7 +16,7 @@ module tracers
  implicit none
 
 #ifdef ATEX
- real, parameter :: decay = 1800.0  ! surface tracer decaying time scale set to Heus and Seifert (2013) value
+ real, parameter :: decay = 900.0
 #elif DYCOMSRF01
  real, parameter :: decay = 600.0  ! surface tracer decaying time scale set to 10 minutes following the eddy turnover time estimates in Stevens et al. (2005)
 #elif BOMEX
@@ -99,7 +99,7 @@ CONTAINS
 ! Set surface and top fluxes of tracers. Default is 0 set in setdata.f90
 #ifdef ATEX
   integer n
-  ! ntracers = 1
+  ! ntracers = 2
   do n = 1,ntracers
    fluxbtr(:,:,n) = 1.0
    fluxttr(:,:,n) = 0.0
@@ -120,7 +120,7 @@ CONTAINS
   end do
 #elif HISCALE
   integer n
-  ! ntracers = 1
+  ! ntracers = 4
   do n = 1,ntracers
   fluxbtr(:,:,n) = 1.0
   fluxttr(:,:,n) = 0.0
@@ -149,8 +149,8 @@ CONTAINS
    do k = 1, nzm
     do j=1,ny
      do i=1,nx
-       tracer(i,j,k,n) = tracer(i,j,k,n)*(1.0 - dtn/decay)
-       trphys(k,n) = trphys(k,n) - tracer(i,j,k,n)*dtn/decay
+       tracer(i,j,k,n) = tracer(i,j,k,n)*(1.0 - dtn/(decay*(2**(n-1))))
+       trphys(k,n) = trphys(k,n) - tracer(i,j,k,n)*dtn/(decay*(2**(n-1)))
      end do
     end do
    end do
