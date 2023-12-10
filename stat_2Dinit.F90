@@ -32,8 +32,8 @@ implicit none
 
     !bloss: store initial profiles for computation of storage terms in budgets
 #ifndef UWM_STATS
-# /* +++mhwang the following lines cause issues with the storge term in budgets. */
-# /* This has been done in statistics.f90. So commented out these four lines. */
+! /* +++mhwang the following lines cause issues with the storge term in budgets. */
+! /* This has been done in statistics.f90. So commented out these four lines. */
      ustor(:) = u0(1:nzm)
      vstor(:) = v0(1:nzm)
      tstor(:) = t0(1:nzm)

@@ -22,6 +22,9 @@ use tracers, only: tracer, tracername
 #elif HISCALE
 use domain
 use tracers, only: tracer, tracername
+#elif LASSO_ENA
+use domain
+use tracers, only: tracer, tracername
 #endif
 
 use params
@@ -70,6 +73,8 @@ nfields = nfields + ntracers
 #elif BOMEX
 nfields = nfields + ntracers
 #elif HISCALE
+nfields = nfields + ntracers
+#elif LASSO_ENA
 nfields = nfields + ntracers
 #endif
 
@@ -374,6 +379,23 @@ end if
                                   save3Dbin,dompi,rank,nsubdomains)
   end do
 #elif HISCALE
+  do n = 1, ntracers
+    nfields1=nfields1+1
+    do k=1,nzm
+      do j=1,ny
+        do i=1,nx
+          tmp(i,j,k)=tracer(i,j,k,n)
+        end do
+      end do
+    end do
+    name=trim(tracername(n))
+    long_name=trim(tracername(n))
+    units='kg/kg'
+    call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
+                                  save3Dbin,dompi,rank,nsubdomains)
+  end do
+#elif LASSO_ENA
+>>>>>>> 29eec2b (LASSO_ENA testrun setup on cirrus.)
   do n = 1, ntracers
     nfields1=nfields1+1
     do k=1,nzm
