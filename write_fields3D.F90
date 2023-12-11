@@ -395,7 +395,6 @@ end if
                                   save3Dbin,dompi,rank,nsubdomains)
   end do
 #elif LASSO_ENA
->>>>>>> 29eec2b (LASSO_ENA testrun setup on cirrus.)
   do n = 1, ntracers
     nfields1=nfields1+1
     do k=1,nzm
