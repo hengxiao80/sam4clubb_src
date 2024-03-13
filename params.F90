@@ -107,6 +107,10 @@ real:: timelargescale =0. ! time to start large-scale forcing
 real:: nudging_uv_z1 =-1., nudging_uv_z2 = 1000000.
 real:: nudging_t_z1 =-1., nudging_t_z2 = 1000000.
 real:: nudging_q_z1 =-1., nudging_q_z2 = 1000000.
+! --- Heng Xiao 02/19/2024
+! Adding nudging_tq start and end times (in seconds since start)
+real:: nudging_tq_t1 = 0., nudging_tq_t2 = 8640000.
+! --- Heng Xiao 02/19/2024
 real:: tauls = 99999999.    ! nudging-to-large-scaler-profile time-scale
 real:: tautqls = 99999999.! nudging-to-large-scaler-profile time-scale for scalars
 

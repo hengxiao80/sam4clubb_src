@@ -18,6 +18,11 @@ real qsatt,dqsat
 real cx,cy,cz,tkmax
 integer i,j,k,kc,kb
 
+! --- Heng Xiao, 03/13/2024
+! adding a switch for delta_s or grd calculation
+logical grd_deltaz = .true.
+! --- Heng Xiao, 03/13/2024
+
 real tabs_interface, qp_interface, qtot_interface, qsat_check, qctot
 
 call t_startf('tke_full')
@@ -51,8 +56,15 @@ if((nstep.eq.1).AND.(icycle.eq.1)) then
       !bloss: compute suface buoyancy flux
       bbb = 1.+epsv*qv(i,j,k)
       a_prod_bu_below(i,j) = bbb*bet(k)*fluxbt(i,j) + bet(k)*epsv*(t00+sstxy(i,j))*fluxbq(i,j) 
-  
-      grd=dz*adz(k)
+
+      ! --- Heng Xiao, 02/28/2024, 03/13/2024
+      ! adding a switch for delta_s or grd calculation
+      if (grd_deltaz) then
+        grd = dz*adz(k)
+      else
+        grd = (dx*dy*dz*adz(k))**(1./3.)
+      end if
+      ! --- Heng Xiao, 02/28/2024, 03/13/2024
       Pr=1. 
       Ce1=Ce/0.7*0.19
       Ce2=Ce/0.7*0.51
@@ -215,8 +227,14 @@ do k = 1,nzm
     a_prod_bu_above(:,:) = 0.
   end if
 
-  !
-  grd=dz*adz(k)
+  ! --- Heng Xiao, 02/28/2024, 03/13/2024
+  ! adding a switch for delta_s or grd calculation
+  if (grd_deltaz) then
+    grd = dz*adz(k)
+  else
+    grd = (dx*dy*dz*adz(k))**(1./3.)
+  end if
+  ! --- Heng Xiao, 02/28/2024, 03/13/2024
 
   Ce1=Ce/0.7*0.19
   Ce2=Ce/0.7*0.51

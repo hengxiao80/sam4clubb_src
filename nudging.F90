@@ -35,6 +35,10 @@ endif
 coef = 1./tautqls
 
 if(donudging_tq.or.donudging_t) then
+  ! --- Heng Xiao, 02/19/2024  
+  ! Only nudge t, q between these two times
+  if (time .gt. nudging_tq_t1 .and. time .lt. nudging_tq_t2) then
+  ! --- Heng Xiao, 02/19/2024  
     coef1 = dtn / tautqls
     do k=1,nzm
       if(z(k).ge.nudging_t_z1.and.z(k).le.nudging_t_z2) then
@@ -46,9 +50,17 @@ if(donudging_tq.or.donudging_t) then
         end do
       end if
     end do
+  ! --- Heng Xiao, 02/19/2024  
+  ! Only nudge t, q between these two times
+  end if
+  ! --- Heng Xiao, 02/19/2024  
 endif
 
 if(donudging_tq.or.donudging_q) then
+  ! --- Heng Xiao, 02/19/2024  
+  ! Only nudge t, q between these two times
+  if (time .gt. nudging_tq_t1 .and. time .lt. nudging_tq_t2) then
+  ! --- Heng Xiao, 02/19/2024  
     coef1 = dtn / tautqls
     do k=1,nzm
       if(z(k).ge.nudging_q_z1.and.z(k).le.nudging_q_z2) then
@@ -60,6 +72,10 @@ if(donudging_tq.or.donudging_q) then
         end do
       end if
     end do
+  ! --- Heng Xiao, 02/19/2024  
+  ! Only nudge t, q between these two times
+  end if
+  ! --- Heng Xiao, 02/19/2024  
 endif
 
 call t_stopf('nudging')

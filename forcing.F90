@@ -511,6 +511,8 @@ endif
 
 #ifdef ATEX
 if(dosfcforcing) then
+#elif LASSO_ENA
+if(dosfcforcing) then
 #else
 if(dosfcforcing.and.time.gt.timelargescale) then
 #endif

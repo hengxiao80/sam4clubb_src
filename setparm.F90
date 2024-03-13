@@ -24,7 +24,12 @@ NAMELIST /PARAMETERS/ dodamping, doupperbound, docloud, doprecip, &
 		donudging_uv, donudging_tq, &
                 donudging_t, donudging_q, tauls,tautqls,&
                 nudging_uv_z1, nudging_uv_z2, nudging_t_z1, nudging_t_z2, &
-                nudging_q_z1, nudging_q_z2, dofplane, &
+                nudging_q_z1, nudging_q_z2, &
+                ! --- Heng Xiao, 02/19/2024
+                ! Adding nudging_tq start and end times (in seconds since start)
+                nudging_tq_t1, nudging_tq_t2, &
+                ! --- Heng Xiao, 02/19/2024
+                dofplane, &
 		timelargescale, longitude0, latitude0, day0, nrad, &
 		CEM,LES,OCEAN,LAND,SFC_FLX_FXD,SFC_TAU_FXD, soil_wetness, &
                 doensemble, nensemble, dowallx, dowally, &

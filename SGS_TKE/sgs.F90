@@ -63,6 +63,11 @@ real grdf_x(nzm)! grid factor for eddy diffusion in x
 real grdf_y(nzm)! grid factor for eddy diffusion in y
 real grdf_z(nzm)! grid factor for eddy diffusion in z
 
+! --- Heng Xiao, 03/13/2024
+! adding a switch for isotropic grdf
+logical :: istropic_grdf = .false.
+! --- Heng Xiao, 03/13/2024
+
 logical:: dosmagor   ! if true, then use Smagorinsky closure
 
 ! Local diagnostics:
@@ -146,8 +151,16 @@ subroutine sgs_init()
 
   if(LES) then
     do k=1,nzm
-       grdf_x(k) = dx**2/(adz(k)*dz)**2
-       grdf_y(k) = dy**2/(adz(k)*dz)**2
+       ! Heng Xiao, 02/28/2024, 03/13/2024
+       ! adding a switch for isotropic grdf
+       if (istropic_grdf) then
+         grdf_x(k) = 1.
+         grdf_y(k) = 1.
+       else
+         grdf_x(k) = dx**2/(adz(k)*dz)**2
+         grdf_y(k) = dy**2/(adz(k)*dz)**2
+       end if
+       ! Heng Xiao, 02/28/2024, 03/13/2024
        grdf_z(k) = 1.
     end do
   else
