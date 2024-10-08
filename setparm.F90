@@ -32,6 +32,12 @@ NAMELIST /PARAMETERS/ dodamping, doupperbound, docloud, doprecip, &
                 dofplane, &
 		timelargescale, longitude0, latitude0, day0, nrad, &
 		CEM,LES,OCEAN,LAND,SFC_FLX_FXD,SFC_TAU_FXD, soil_wetness, &
+                ! --- Heng Xiao 09/18/2024
+                UNIFORM_SFC_FLX, &
+                ! --- Heng Xiao 09/18/2024
+                ! --- Heng Xiao 09/24/2024
+                READ_IN_GEOSTROPHIC_WIND, &
+                ! --- Heng Xiao 09/24/2024
                 doensemble, nensemble, dowallx, dowally, &
                 nsave2D, nsave2Dstart, nsave2Dend, qnsave3D, & 
                 docolumn, save2Dbin, save2Davg, save3Dbin, &

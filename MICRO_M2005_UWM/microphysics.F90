@@ -176,7 +176,7 @@ real, allocatable, dimension(:) :: mPRC, mPRA, mPSMLT, mEVPMS, mPRACS, mEVPMG, m
                         mNIM_MORR_CL, mQC_INST, mQR_INST, mQI_INST, mQS_INST, mQG_INST, &
                         mNC_INST, mNR_INST, mNI_INST, mNS_INST, mNG_INST  
 
-#ifdef UWM_STATS
+#if defined(UWM_STATS) || defined(LASSO_ENA_3D_MICRO_OUTPUT)
 ! weberjk(UWM), 3D QR budget
 real, allocatable, dimension(:,:,:) :: mPRE_3D, mPRA_3D, mPRC_3D, mPRACS_3D, mMNUCCR_3D, &
                         mQMULTR_3D, mQMULTRG_3D, mPIACR_3D, mPIACRS_3D, mPRACG_3D, mPGRACS_3D, &
@@ -219,12 +219,13 @@ real, allocatable, dimension(:,:,:) :: mSTENDQR_3D, mSTENDQCI_3D, mSTENDQG_3D, m
 
 ! weberjk(UWM), Ancilliary micro variables
 real, allocatable, dimension(:,:,:) :: rain_vel_3D, EFFR_3D
+#endif
+
+#ifdef UWM_STATS
 
 ! weberjk(UWM), liquid water potential temperature, chi (s_mellor),
 ! and eta (t_mellor)
 real, allocatable, dimension(:,:,:) :: theta_l, chi, eta
-
-
 
 #endif /*UWM_STATS*/
 
@@ -487,7 +488,7 @@ endif
                         mNC_INST(nzm), mNR_INST(nzm), mNI_INST(nzm), mNS_INST(nzm), mNG_INST(nzm), &
                         STAT=ierr)
 
-#ifdef UWM_STATS
+#if defined(UWM_STATS) || defined(LASSO_ENA_3D_MICRO_OUTPUT)
 ! weberjk(UWM), 3D QR budget
       allocate(mPRE_3D(nx,ny,nzm), mPRA_3D(nx,ny,nzm), mPRC_3D(nx,ny,nzm), mPRACS_3D(nx,ny,nzm), mMNUCCR_3D(nx,ny,nzm), &
                         mQMULTR_3D(nx,ny,nzm), mQMULTRG_3D(nx,ny,nzm), mPIACR_3D(nx,ny,nzm), mPIACRS_3D(nx,ny,nzm), &
@@ -532,8 +533,9 @@ endif
 
 ! weberjk(UWM), 3D NR budget
       allocate(rain_vel_3D(nx,ny,nzm), EFFR_3D(nx,ny,nzm), STAT=ierr)
+#endif
 
-
+#ifdef UWM_STATS
 ! weberjk(UWM), liquid water potential temperature, chi (s_mellor),
 ! and eta (t_mellor).
       allocate(theta_l(nx,ny,nzm), chi(nx,ny,nzm), eta(nx,ny,nzm), STAT=ierr)
@@ -898,11 +900,13 @@ use grid, only: z, zi
 use vars, only: t,  gamaz, precsfc, precflux, qpfall, tlat, prec_xy, &
      nstep, nstatis, icycle, total_water_prec
 
+#if defined(UWM_STATS) || defined(LASSO_ENA_3D_MICRO_OUTPUT)
+use grid, only: nsave3D, nsave3dstart, nsave3dend
+#endif
 #ifdef UWM_STATS
 !weberjk(UWM), to compute budget statistics on q2, t2, tw, qw, include the
 !effect of precipitation (microphysics)    
 use vars, only: t2leprec, q2leprec, qwleprec, twleprec, prespot, qsatw
-use grid, only: nsave3D, nsave3dstart, nsave3dend
 use module_mp_GRAUPEL, only: Nc0
 use compute_chi_module, only: compute_chi_eta
 use calc_vars_util, only: t2thetal
@@ -1126,7 +1130,7 @@ if(dostatis) then ! initialize arrays for statistics
    mNS_INST=0.0 
    mNG_INST=0.0
 
-#ifdef UWM_STATS
+#if defined(UWM_STATS) || defined(LASSO_ENA_3D_MICRO_OUTPUT)
 
    mPRE_3D=0.0
    mPRA_3D=0.0
@@ -1224,7 +1228,9 @@ if(dostatis) then ! initialize arrays for statistics
    mSTENDNCI_3D=0.0
    mSTENDNG_3D=0.0
    mSTENDNS_3D=0.0
+#endif
 
+#ifdef UWM_STATS
 
    !weberjk(UWM) Set 'before' values for budget statistics        
    do k=1,nzm 
@@ -1838,7 +1844,7 @@ endif
          mNS_INST=mNS_INST+NS_INST
          mNG_INST=mNG_INST+NG_INST
 
-#ifdef UWM_STATS
+#if defined(UWM_STATS) || defined(LASSO_ENA_3D_MICRO_OUTPUT)
    !3d Budgets
    mPRE_3D(i,j,:)=mPRE_3D(i,j,:) + PRE
    mPRA_3D(i,j,:)=mPRA_3D(i,j,:) + PRA
@@ -1992,7 +1998,13 @@ call compute_chi_eta( theta_l, micro_field(1:nx,1:ny,1:nzm,iqv), pres, prespot,&
 #elif HISCALE
 ! Nothing
 #elif LASSO_ENA
-! Nothing
+#ifdef LASSO_ENA_3D_MICRO_OUTPUT
+if(mod(nstep,nsave3D).eq.0.and.nstep.ge.nsave3Dstart.and.nstep.le.nsave3Dend) then
+  call write_3d_micro_fields()
+  call write_3d_micro_fields_frzmr()
+  call write_3d_micro_fields_frznc()
+  call write_3d_micro_fields_sed()
+#endif
 #else
 if(mod(nstep,nsave3D).eq.0.and.nstep.ge.nsave3Dstart.and.nstep.le.nsave3Dend) then
   call write_3d_micro_fields()
@@ -2971,13 +2983,13 @@ call add_to_namelist(count,microcount,name,longname,units,0)
 
 
 
-#ifndef UWM_STATS_MICRO
+#ifndef UWM_STATS
 if(masterproc) then
    write(*,*) 'Added ', microcount, ' arrays to statistics for M2005 microphysics'
 end if
-#endif /*UWM_STATS_MICRO*/
+#endif /*UWM_STATS*/
 
-#ifdef UWM_STATS_MICRO
+#ifdef UWM_STATS
     
 
 !----------------------------
@@ -5931,7 +5943,7 @@ end if !doicemicro
 if(masterproc) then
    write(*,*) 'Added ', microcount, ' arrays to statistics for M2005 microphysics'
 end if
-#endif /*UWM_STATS_MICRO*/
+#endif /*UWM_STATS*/
 
 end subroutine micro_hbuf_init
 
@@ -6282,7 +6294,7 @@ else
 end if
 
 
-#ifdef UWM_STATS_MICRO
+#ifdef UWM_STATS
 ! In micro arrays, indicies for hydrometeor
  rc_pts = 1 
  rr_pts = 2
@@ -6698,7 +6710,7 @@ endif
   end do
   
   
-#endif /* UWM_STATS_MICRO */
+#endif /* UWM_STATS */
 
 ! Microphysical process rates +++mhwnag
    call hbuf_put('PRC', mPRC, factor_xy)
@@ -6797,7 +6809,7 @@ endif
 
 
 
-#ifdef UWM_STATS_MICRO
+#ifdef UWM_STATS
 ! Write out each hydrometeor fraction
 do n = 1,nfrac_fields
   do m = 1,nfractions
@@ -8714,7 +8726,7 @@ if (doicemicro) then
   endif !dograupel
 endif !doicemicro
 
-#endif /*UWM_STATS_MICRO*/
+#endif /*UWM_STATS*/
 
 call t_stopf ('micro_statistics')
 
@@ -8887,7 +8899,7 @@ LIN_INT = ( var_high - var_low ) / ( height_high - height_low ) &
 END FUNCTION LIN_INT
 #endif
 
-#ifdef UWM_STATS
+#if defined(UWM_STATS) || defined(LASSO_ENA_3D_MICRO_OUTPUT)
 !--------------------------------------------------------------------------------------------------
 subroutine write_3d_micro_fields()
 
@@ -8967,7 +8979,11 @@ real, dimension(nx,ny,nzm) :: &
 
 call t_startf('3D_microrain')
 
+#ifdef LASSO_ENA_3D_MICRO_OUTPUT
+nfields = 37-8
+#else
 nfields=37 ! number of 3D fields to save
+#endif
 nfields1=0 ! assertion check
 
 if(masterproc.or.output_sep) then
@@ -9071,7 +9087,7 @@ end if ! masterproc.or.output_sep
 !--------------------------------------
 ! Micro fields
 !--------------------------------------
-
+#ifndef LASSO_ENA_3D_MICRO_OUTPUT
 do i = 1, nx, 1
    do j = 1, ny, 1
       do k = 1, nzm, 1
@@ -9207,7 +9223,7 @@ if (doprecip) then
   call compress3D( tmp, nx, ny, nzm, name, long_name, units, &
                  save3Dbin, dompi, rank, nsubdomains )
 endif ! doprecip
-
+# endif
   !--------------------------------------
   ! RR Budget Terms
   !--------------------------------------

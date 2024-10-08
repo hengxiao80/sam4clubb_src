@@ -63,8 +63,8 @@ module domain
        integer, parameter :: nx_gl = 256 ! Number of grid points in Y
        integer, parameter :: ny_gl = 256 ! Number of grid points in Y
        ! integer, parameter :: nz_gl = 300 ! Number of pressure (scalar) levels
-       ! integer, parameter :: nz_gl = 250 ! Number of pressure (scalar) levels
-       integer, parameter :: nz_gl = 500 ! Number of pressure (scalar) levels
+       integer, parameter :: nz_gl = 250 ! Number of pressure (scalar) levels
+       ! integer, parameter :: nz_gl = 500 ! Number of pressure (scalar) levels
        integer, parameter :: nsubdomains_x  = 16 ! No of subdomains in x
        integer, parameter :: nsubdomains_y  = 16 ! No of subdomains in y
 #else

@@ -14,7 +14,7 @@ implicit none
 
 integer i,j,k,n,nn,m,iz,iday0,iday
 real coef, radtend, dayy
-real tt(nzm,2),qq(nzm,2),uu(nzm,2),vv(nzm,2),ww(nzm,2)
+real tt(nzm,2),qq(nzm,2),uu(nzm,2),vv(nzm,2),ww(nzm,2),uug(nzm,2),vvg(nzm,2)
 real ratio1, ratio2, ratio_t1, ratio_t2
 logical zgrid
 #ifdef UWM_MISC
@@ -131,6 +131,8 @@ call t_startf ('forcing')
     qg0(k)=qq(k,1)+(qq(k,2)-qq(k,1))*coef
     qg0(k)=qg0(k)*1.e-3
 ! Note that ug0 and vg0 maybe reset if dolargescale is true)
+    ul0(k)=uu(k,1)+(uu(k,2)-uu(k,1))*coef - ug
+    vl0(k)=vv(k,1)+(vv(k,2)-vv(k,1))*coef - vg
     ug0(k)=uu(k,1)+(uu(k,2)-uu(k,1))*coef - ug
     vg0(k)=vv(k,1)+(vv(k,2)-vv(k,1))*coef - vg
    end do
@@ -147,13 +149,15 @@ do k=1,nzm
  qtheltend(k)=0.
 #endif /*PNNL_STATS*/
  qtend(k)=0.
+ wsub(k)=0.
 end do
 
 
 ! Large-Scale Advection Forcing:
 
 
-if(dolargescale.and.time.gt.timelargescale) then
+! if(dolargescale.and.time.gt.timelargescale) then
+if(dolargescale) then
 
   nn=1
   do i=1,nlsf-1
@@ -181,9 +185,13 @@ if(dolargescale.and.time.gt.timelargescale) then
          coef = (z(iz)-zls(i-1,m))/(zls(i,m)-zls(i-1,m))
          tt(iz,n)=dtls(i-1,m)+(dtls(i,m)-dtls(i-1,m))*coef
          qq(iz,n)=dqls(i-1,m)+(dqls(i,m)-dqls(i-1,m))*coef
-         uu(iz,n)=ugls(i-1,m)+(ugls(i,m)-ugls(i-1,m))*coef
-         vv(iz,n)=vgls(i-1,m)+(vgls(i,m)-vgls(i-1,m))*coef
-         ww(iz,n)=wgls(i-1,m)+(wgls(i,m)-wgls(i-1,m))*coef
+         uu(iz,n)=uls(i-1,m)+(uls(i,m)-uls(i-1,m))*coef
+         vv(iz,n)=vls(i-1,m)+(vls(i,m)-vls(i-1,m))*coef
+         if (read_in_geostrophic_wind) then
+          uug(iz,n)=ugls(i-1,m)+(ugls(i,m)-ugls(i-1,m))*coef
+          vvg(iz,n)=vgls(i-1,m)+(vgls(i,m)-vgls(i-1,m))*coef
+         endif
+         ww(iz,n)=wls(i-1,m)+(wls(i,m)-wls(i-1,m))*coef
          goto 12
        endif
       end do
@@ -193,9 +201,13 @@ if(dolargescale.and.time.gt.timelargescale) then
          coef = (pres(iz)-pls(i-1,m))/(pls(i,m)-pls(i-1,m))
          tt(iz,n)=dtls(i-1,m)+(dtls(i,m)-dtls(i-1,m))*coef
          qq(iz,n)=dqls(i-1,m)+(dqls(i,m)-dqls(i-1,m))*coef
-         uu(iz,n)=ugls(i-1,m)+(ugls(i,m)-ugls(i-1,m))*coef
-         vv(iz,n)=vgls(i-1,m)+(vgls(i,m)-vgls(i-1,m))*coef
-         ww(iz,n)=wgls(i-1,m)+(wgls(i,m)-wgls(i-1,m))*coef
+         uu(iz,n)=uls(i-1,m)+(uls(i,m)-uls(i-1,m))*coef
+         vv(iz,n)=vls(i-1,m)+(vls(i,m)-vls(i-1,m))*coef
+         if (read_in_geostrophic_wind) then
+          uug(iz,n)=ugls(i-1,m)+(ugls(i,m)-ugls(i-1,m))*coef
+          vvg(iz,n)=vgls(i-1,m)+(vgls(i,m)-vgls(i-1,m))*coef
+         endif
+         ww(iz,n)=wls(i-1,m)+(wls(i,m)-wls(i-1,m))*coef
          goto 12
        endif
       end do
@@ -204,6 +216,10 @@ if(dolargescale.and.time.gt.timelargescale) then
      qq(iz,n)=0.
      uu(iz,n)=uu(iz-1,n)
      vv(iz,n)=vv(iz-1,n)
+     if (read_in_geostrophic_wind) then
+       uug(iz,n)=uug(iz-1,n)
+       vvg(iz,n)=vvg(iz-1,n)
+     endif
      ww(iz,n)=0.
   12 continue
 
@@ -212,25 +228,27 @@ if(dolargescale.and.time.gt.timelargescale) then
    end do ! n
 
 #ifdef UWM_STATS
-   if (dostatis) then
-      do k=1,nzm
-         do j=1,ny
-            do i=1,nx
-               t1(i,j,k) = t(i,j,k)
-               q1(i,j,k) = micro_field(i,j,k,index_water_vapor)
+  if(time.gt.timelargescale) then
+    if (dostatis) then
+        do k=1,nzm
+          do j=1,ny
+              do i=1,nx
+                t1(i,j,k) = t(i,j,k)
+                q1(i,j,k) = micro_field(i,j,k,index_water_vapor)
 #ifdef PNNL_STATS
-               thel1(i,j,k) = t2thetal( t(i,j,k), gamaz(k), qpl(i,j,k), &
-                                        qci(i,j,k), qpi(i,j,k), prespot(k) )
-               qtog1(i,j,k) = 0.0
-               do n = 1, nmicro_fields ! prevents accessing unreferenced memory 
-                  qtog1(i,j,k) = qtog1(i,j,k) + flag_wmass(n)*micro_field(i,j,k,n)
-               end do
+                thel1(i,j,k) = t2thetal( t(i,j,k), gamaz(k), qpl(i,j,k), &
+                                          qci(i,j,k), qpi(i,j,k), prespot(k) )
+                qtog1(i,j,k) = 0.0
+                do n = 1, nmicro_fields ! prevents accessing unreferenced memory 
+                    qtog1(i,j,k) = qtog1(i,j,k) + flag_wmass(n)*micro_field(i,j,k,n)
+                end do
 #endif /*PNNL_STATS*/
-               misc(i,j,k) = w(i,j,k)
-            enddo
-         enddo
-      enddo ! k = 1, nzm
-   endif
+                misc(i,j,k) = w(i,j,k)
+              enddo
+          enddo
+        enddo ! k = 1, nzm
+    endif
+  endif
 #endif /*UWM_STATS*/
    coef=(day-dayls(nn))/(dayls(nn+1)-dayls(nn))
    dosubsidence = .false.
@@ -250,8 +268,15 @@ if(dolargescale.and.time.gt.timelargescale) then
    do k=1,nzm
 #ifdef ATEX
     dosubsidence = .true.
-    ug0(k)=uu(k,1)+(uu(k,2)-uu(k,1))*coef - ug
-    vg0(k)=vv(k,1)+(vv(k,2)-vv(k,1))*coef - vg
+    if (read_in_geostrophic_wind) then
+      ug0(k)=uug(k,1)+(uug(k,2)-uug(k,1))*coef - ug
+      vg0(k)=vvg(k,1)+(vvg(k,2)-vvg(k,1))*coef - vg
+    else
+      ug0(k)=uu(k,1)+(uu(k,2)-uu(k,1))*coef - ug
+      vg0(k)=vv(k,1)+(vv(k,2)-vv(k,1))*coef - vg
+    endif
+    ul0(k)=uu(k,1)+(uu(k,2)-uu(k,1))*coef - ug
+    vl0(k)=vv(k,1)+(vv(k,2)-vv(k,1))*coef - vg
     if (k .ge. k_zibar) then 
       wsub(k) = min(0.,-0.0065*(1 - (zi(k)-zibar)/300.))
       ttend(k) = - (1.- (z(k)-zibar)/300.)*2.315e-5
@@ -262,44 +287,59 @@ if(dolargescale.and.time.gt.timelargescale) then
       qtend(k) = -1.5e-8
     endif
 #else
-    ttend(k)=tt(k,1)+(tt(k,2)-tt(k,1))*coef
-    qtend(k)=qq(k,1)+(qq(k,2)-qq(k,1))*coef
-    ug0(k)=uu(k,1)+(uu(k,2)-uu(k,1))*coef - ug
-    vg0(k)=vv(k,1)+(vv(k,2)-vv(k,1))*coef - vg
-    wsub(k)=ww(k,1)+(ww(k,2)-ww(k,1))*coef
-    dosubsidence = dosubsidence .or. wsub(k).ne.0.
+    if (read_in_geostrophic_wind) then
+      ug0(k)=uug(k,1)+(uug(k,2)-uug(k,1))*coef - ug
+      vg0(k)=vvg(k,1)+(vvg(k,2)-vvg(k,1))*coef - vg
+    else
+      ug0(k)=uu(k,1)+(uu(k,2)-uu(k,1))*coef - ug
+      vg0(k)=vv(k,1)+(vv(k,2)-vv(k,1))*coef - vg
+    endif
+    ul0(k)=uu(k,1)+(uu(k,2)-uu(k,1))*coef - ug
+    vl0(k)=vv(k,1)+(vv(k,2)-vv(k,1))*coef - vg
+    if (time .gt. timelargescale) then
+      ttend(k)=tt(k,1)+(tt(k,2)-tt(k,1))*coef
+      qtend(k)=qq(k,1)+(qq(k,2)-qq(k,1))*coef
+      wsub(k)=ww(k,1)+(ww(k,2)-ww(k,1))*coef
+      ! Note for understanding: dosubsidence is set to .false. above
+      ! but here if wsub(k) is nonzero at any level, then dosubsidence is set to .true.
+      ! Also contrary to my impression, dosubsidence is not in the namelist. 
+      ! --- Heng Xiao 09/25/2024
+      dosubsidence = dosubsidence .or. wsub(k).ne.0.
+    endif
 #endif
-    do j=1,ny
-     do i=1,nx
-      t(i,j,k)=t(i,j,k)+ttend(k) * dtn
+    if (time .gt. timelargescale) then
+      do j=1,ny
+      do i=1,nx
+        t(i,j,k)=t(i,j,k)+ttend(k) * dtn
 #ifdef UWM_MISC
-      if ( do_spec_hum_to_mix_rat ) then
-         ! The specified forcings were given in terms of specific humidity.
-         ! They need to be put in terms of mixing ratio.
-         micro_field(i,j,k,index_water_vapor) &
-         = micro_field(i,j,k,index_water_vapor) &
-           + ( 1.0 + micro_field(i,j,k,index_water_vapor) )**2 * qtend(k) * dtn
-      else ! already in mixing ratio
-         micro_field(i,j,k,index_water_vapor) = &
-              micro_field(i,j,k,index_water_vapor) + qtend(k) * dtn
-      endif ! do_spec_hum_to_mix_rat
+        if ( do_spec_hum_to_mix_rat ) then
+          ! The specified forcings were given in terms of specific humidity.
+          ! They need to be put in terms of mixing ratio.
+          micro_field(i,j,k,index_water_vapor) &
+          = micro_field(i,j,k,index_water_vapor) &
+            + ( 1.0 + micro_field(i,j,k,index_water_vapor) )**2 * qtend(k) * dtn
+        else ! already in mixing ratio
+          micro_field(i,j,k,index_water_vapor) = &
+                micro_field(i,j,k,index_water_vapor) + qtend(k) * dtn
+        endif ! do_spec_hum_to_mix_rat
 #else
-      micro_field(i,j,k,index_water_vapor) = &
-                 max(0.,micro_field(i,j,k,index_water_vapor) + qtend(k) * dtn)
+        micro_field(i,j,k,index_water_vapor) = &
+                  max(0.,micro_field(i,j,k,index_water_vapor) + qtend(k) * dtn)
 #endif /* UWM_MISC */
 #ifdef PNNL_STATS
-      thel(i,j,k) = t2thetal( t(i,j,k), gamaz(k), qpl(i,j,k), &
-                              qci(i,j,k), qpi(i,j,k), prespot(k) )
-      qtog(i,j,k) = 0.0
-      do n = 1, nmicro_fields ! prevents accessing unreferenced memory 
-          qtog(i,j,k) = qtog(i,j,k) + flag_wmass(n)*micro_field(i,j,k,n)
-      end do
+        thel(i,j,k) = t2thetal( t(i,j,k), gamaz(k), qpl(i,j,k), &
+                                qci(i,j,k), qpi(i,j,k), prespot(k) )
+        qtog(i,j,k) = 0.0
+        do n = 1, nmicro_fields ! prevents accessing unreferenced memory 
+            qtog(i,j,k) = qtog(i,j,k) + flag_wmass(n)*micro_field(i,j,k,n)
+        end do
 
-      theltend(k) = theltend(k) + (thel(i,j,k)-thel1(i,j,k))/dtn/float(nx*ny)
-      qtogtend(k) = qtogtend(k) + (qtog(i,j,k)-qtog1(i,j,k))/dtn/float(nx*ny)
+        theltend(k) = theltend(k) + (thel(i,j,k)-thel1(i,j,k))/dtn/float(nx*ny)
+        qtogtend(k) = qtogtend(k) + (qtog(i,j,k)-qtog1(i,j,k))/dtn/float(nx*ny)
 #endif /*PNNL_STATS*/
-     end do
-    end do
+      end do
+      end do
+    endif
    end do 
 
 #ifdef PNNL_STATS
@@ -355,7 +395,7 @@ if(dolargescale.and.time.gt.timelargescale) then
       end do
    end if
 
-   if(dosubsidence) call subsidence()
+   if(dosubsidence .and. time .gt. timelargescale) call subsidence()
 
 #ifdef UWM_STATS
    if (dostatis) then

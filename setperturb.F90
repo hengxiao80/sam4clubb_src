@@ -114,6 +114,8 @@ select case (ptype)
          rrr=1.-2.*ranf_()
 #ifdef ATEX
          if(z(k) .le. 810.) then
+#elif LASSO_ENA
+         if(z(k) .le. 600.) then
 #else
          if(z(k).le.1600.) then
 #endif

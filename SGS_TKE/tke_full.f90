@@ -20,7 +20,7 @@ integer i,j,k,kc,kb
 
 ! --- Heng Xiao, 03/13/2024
 ! adding a switch for delta_s or grd calculation
-logical grd_deltaz = .true.
+logical, parameter :: grd_deltaz = .true.
 ! --- Heng Xiao, 03/13/2024
 
 real tabs_interface, qp_interface, qtot_interface, qsat_check, qctot

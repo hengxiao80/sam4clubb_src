@@ -20,12 +20,12 @@ coef = 1./tauls
 if(donudging_uv) then
     do k=1,nzm
       if(z(k).ge.nudging_uv_z1.and.z(k).le.nudging_uv_z2) then
-        unudge(k)=unudge(k) - (u0(k)-ug0(k))*coef
-        vnudge(k)=vnudge(k) - (v0(k)-vg0(k))*coef
+        unudge(k)=unudge(k) - (u0(k)-ul0(k))*coef
+        vnudge(k)=vnudge(k) - (v0(k)-vl0(k))*coef
         do j=1,ny
           do i=1,nx
-             dudt(i,j,k,na)=dudt(i,j,k,na)-(u0(k)-ug0(k))*coef
-             dvdt(i,j,k,na)=dvdt(i,j,k,na)-(v0(k)-vg0(k))*coef
+             dudt(i,j,k,na)=dudt(i,j,k,na)-(u0(k)-ul0(k))*coef
+             dvdt(i,j,k,na)=dvdt(i,j,k,na)-(v0(k)-vl0(k))*coef
           end do
         end do
       end if

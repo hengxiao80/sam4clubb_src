@@ -80,7 +80,11 @@ nlsf=0
 do while(.true.)
   read(77,err=55,end=55,fmt=*) tmp,nzlsf
   do i=1,nzlsf
-      read(77,*) tmp,tmp,tmp,tmp,tmp,tmp,tmp
+      if (read_in_geostrophic_wind) then
+        read(77,*) tmp,tmp,tmp,tmp,tmp,tmp,tmp,tmp,tmp
+      else
+        read(77,*) tmp,tmp,tmp,tmp,tmp,tmp,tmp
+      endif
   end do
   nlsf=nlsf+1
 end do
@@ -93,13 +97,24 @@ rewind(77)
 read(77,*)
 nlsf=nlsf+1   ! just in case ...
 if(masterproc)print*,'forcing data: nlsf=',nlsf,'  nzlsf=',nzlsf
-allocate(ugls(nzlsf,nlsf),vgls(nzlsf,nlsf), wgls(nzlsf,nlsf), &
-         dtls(nzlsf,nlsf),dqls(nzlsf,nlsf), &
-         zls(nzlsf,nlsf),pls(nzlsf,nlsf),pres0ls(nlsf),dayls(nlsf))
+if (read_in_geostrophic_wind) then
+  allocate(uls(nzlsf,nlsf),vls(nzlsf,nlsf), wls(nzlsf,nlsf), &
+          ugls(nzlsf,nlsf),vgls(nzlsf,nlsf), &
+          dtls(nzlsf,nlsf),dqls(nzlsf,nlsf), &
+          zls(nzlsf,nlsf),pls(nzlsf,nlsf),pres0ls(nlsf),dayls(nlsf))
+else
+  allocate(uls(nzlsf,nlsf),vls(nzlsf,nlsf), wls(nzlsf,nlsf), &
+          dtls(nzlsf,nlsf),dqls(nzlsf,nlsf), &
+          zls(nzlsf,nlsf),pls(nzlsf,nlsf),pres0ls(nlsf),dayls(nlsf))
+endif
 do n=1,nlsf-1
   read(77,*) dayls(n),i,pres0ls(n)
   do i=1,nzlsf
-      read(77,*) zls(i,n),pls(i,n),dtls(i,n),dqls(i,n),ugls(i,n),vgls(i,n),wgls(i,n)
+    if (read_in_geostrophic_wind) then
+      read(77,*) zls(i,n),pls(i,n),dtls(i,n),dqls(i,n),uls(i,n),vls(i,n),wls(i,n),ugls(i,n),vgls(i,n)
+    else
+      read(77,*) zls(i,n),pls(i,n),dtls(i,n),dqls(i,n),uls(i,n),vls(i,n),wls(i,n)
+    endif
   end do
 end do
 close(77)
@@ -113,9 +128,13 @@ zls(1:nzlsf,nlsf) = zls(1:nzlsf,nlsf-1)
 pls(1:nzlsf,nlsf) = pls(1:nzlsf,nlsf-1)
 dtls(1:nzlsf,nlsf) = dtls(1:nzlsf,nlsf-1)
 dqls(1:nzlsf,nlsf) = dqls(1:nzlsf,nlsf-1)
-ugls(1:nzlsf,nlsf) = ugls(1:nzlsf,nlsf-1)
-vgls(1:nzlsf,nlsf) = vgls(1:nzlsf,nlsf-1)
-wgls(1:nzlsf,nlsf) = wgls(1:nzlsf,nlsf-1)
+uls(1:nzlsf,nlsf) = uls(1:nzlsf,nlsf-1)
+vls(1:nzlsf,nlsf) = vls(1:nzlsf,nlsf-1)
+wls(1:nzlsf,nlsf) = wls(1:nzlsf,nlsf-1)
+if(read_in_geostrophic_wind) then
+  ugls(1:nzlsf,nlsf) = ugls(1:nzlsf,nlsf-1)
+  vgls(1:nzlsf,nlsf) = vgls(1:nzlsf,nlsf-1)
+endif
 
 if(masterproc)print*,'Large-Scale Forcing interval (days):',dayls(1),dayls(nlsf)
 

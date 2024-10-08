@@ -20,7 +20,7 @@ if(.not.SFC_FLX_FXD) then
 
   if(OCEAN) then
 
-    if(LES) then
+    if(LES .and. UNIFORM_SFC_FLX) then
 
        call oceflx(pres(1),u0(1)+ug, v0(1)+vg,t0(1)-gamaz(1), q0(1),t0(1),z(1),&
                           sstxy(1,1)+t00, fluxt0, fluxq0, taux0, tauy0, q_s)
@@ -39,7 +39,7 @@ if(.not.SFC_FLX_FXD) then
 
     end if ! LES
 
-    if(CEM) then
+    if(CEM .or. (.not. UNIFORM_SFC_FLX)) then
 
        qvs(0:nx,1-YES3D:ny) = micro_field(0:nx,1-YES3D:ny,1,index_water_vapor)
 
@@ -89,7 +89,7 @@ if(.not.SFC_FLX_FXD) then
 
   if(LAND) then
 
-            if(LES) then    
+            if(LES .and. UNIFORM_SFC_FLX) then    
 
                coef = (1000./pres0)**(rgas/cp)
                coef1 = (1000./pres(1))**(rgas/cp)
@@ -113,7 +113,7 @@ if(.not.SFC_FLX_FXD) then
 
             end if ! LES
 
-            if(CEM) then
+            if(CEM .or. (.not. UNIFORM_SFC_FLX)) then
 
               coef = (1000./pres0)**(rgas/cp)
               coef1 = (1000./pres(1))**(rgas/cp)

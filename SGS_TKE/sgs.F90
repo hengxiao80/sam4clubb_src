@@ -65,7 +65,7 @@ real grdf_z(nzm)! grid factor for eddy diffusion in z
 
 ! --- Heng Xiao, 03/13/2024
 ! adding a switch for isotropic grdf
-logical :: istropic_grdf = .false.
+logical, parameter :: isotropic_grdf = .false.
 ! --- Heng Xiao, 03/13/2024
 
 logical:: dosmagor   ! if true, then use Smagorinsky closure
@@ -153,7 +153,7 @@ subroutine sgs_init()
     do k=1,nzm
        ! Heng Xiao, 02/28/2024, 03/13/2024
        ! adding a switch for isotropic grdf
-       if (istropic_grdf) then
+       if (isotropic_grdf) then
          grdf_x(k) = 1.
          grdf_y(k) = 1.
        else

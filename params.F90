@@ -91,6 +91,12 @@ logical:: ocean =.false.  ! flag indicating that surface is water
 logical:: land =.false.   ! flag indicating that surface is land
 logical:: sfc_flx_fxd =.false. ! surface sensible flux is fixed
 logical:: sfc_tau_fxd =.false.! surface drag is fixed
+! --- Heng Xiao 09/18/2024
+logical:: uniform_sfc_flx = .true.
+! --- Heng Xiao 09/18/2024
+! --- Heng Xiao 09/24/2024
+logical:: read_in_geostrophic_wind = .false.
+! --- Heng Xiao 09/24/2024
 #ifdef UWM_MISC
 ! Flag to say that the case specifications are declared in specific humidity.
 ! When this flag is enabled, the specified quantities will be changed to terms

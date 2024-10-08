@@ -9,7 +9,7 @@
 subroutine readiopdata( error_code )
   use vars, only: nsfc, daysfc, sstsfc, shsfc, lhsfc, tausfc, &
                   nsnd, nzsnd, daysnd, usnd, vsnd, tsnd, qsnd, psnd, zsnd, &
-                  nlsf, nzlsf, dayls,  ugls, vgls, wgls, dqls, dtls, pls, zls, &
+                  nlsf, nzlsf, dayls,  ugls, vgls, wls, dqls, dtls, pls, zls, &
                   pres0ls
   use grid, only: nzm, z, case, masterproc, rank, & 
        dozero_out_day0, iopfile, wgls_holds_omega
@@ -599,7 +599,7 @@ subroutine readiopdata( error_code )
    allocate(usnd(nzsnd,nsnd),vsnd(nzsnd,nsnd), &
         tsnd(nzsnd,nsnd),qsnd(nzsnd,nsnd), &
         zsnd(nzsnd,nsnd),psnd(nzsnd,nsnd),daysnd(nsnd), &
-        ugls(nzlsf,nlsf),vgls(nzlsf,nlsf), wgls(nzlsf,nlsf), &
+        ugls(nzlsf,nlsf),vgls(nzlsf,nlsf), wls(nzlsf,nlsf), &
         dtls(nzlsf,nlsf),dqls(nzlsf,nlsf), &
         zls(nzlsf,nlsf),pls(nzlsf,nlsf),pres0ls(nlsf),dayls(nlsf),&
         daysfc(nsfc),sstsfc(nsfc),shsfc(nsfc),lhsfc(nsfc),&
@@ -722,7 +722,7 @@ subroutine readiopdata( error_code )
 
    dtls(:,:) = 0.
    dqls(:,:) = 0.
-   wgls(:,:) = 0.
+   wls(:,:) = 0.
 
    if(have_omega) then
       dosubsidence = .true.
@@ -731,7 +731,7 @@ subroutine readiopdata( error_code )
       do i = 1,nlsf
          ! NOTE: Here, we are putting omega into wgls (large-scale w)
          ! THIS WILL BE CONVERTED INTO w IN forcing()
-         wgls(1:nzlsf,i) = omega_in(i,nzlsf:1:-1)
+         wls(1:nzlsf,i) = omega_in(i,nzlsf:1:-1)
       end do
       wgls_holds_omega = .true.
 

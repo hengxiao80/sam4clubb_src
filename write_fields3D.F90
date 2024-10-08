@@ -48,20 +48,18 @@ real(4) tmp(nx,ny,nzm)
 real, external :: LIN_INT
 #endif
 
-nfields= 9 ! number of 3D fields to save
+nfields= 8 ! number of 3D fields to save
 #ifdef CLUBB
 if( .not.docloud .and. .not.(doclubb.or.doclubbnoninter ) ) nfields=nfields-1 ! dschanen UWM 19 June
 #else
 if(.not.docloud) nfields=nfields-1
 #endif
-if(.not.doprecip) nfields=nfields-1
 #ifdef CLUBB
 if( doclubb ) nfields=nfields+11 ! dschanen UWM 28 May 2008
 #endif
 !bloss: add 3D outputs for microphysical fields specified by flag_micro3Dout
 !       except for water vapor (already output as a SAM default).
-! turning off 3D micro prognostic variable output for HISCALE tracking run - HX
-! if(docloud) nfields=nfields+SUM(flag_micro3Dout)-flag_micro3Dout(index_water_vapor)
+if(docloud) nfields=nfields+SUM(flag_micro3Dout)-flag_micro3Dout(index_water_vapor)
 if((dolongwave.or.doshortwave).and..not.doradhomo) nfields=nfields+1
 if(compute_reffc.and.(dolongwave.or.doshortwave).and.rad3Dout) nfields=nfields+1
 if(compute_reffi.and.(dolongwave.or.doshortwave).and.rad3Dout) nfields=nfields+1
@@ -319,12 +317,12 @@ if(docloud) then
   do k=1,nzm
    do j=1,ny
     do i=1,nx
-      tmp(i,j,k)=(qcl(i,j,k)+qci(i,j,k))*1.e3
+      tmp(i,j,k)=qcl(i,j,k)*1.e3
     end do
    end do
   end do
-  name='QN'
-  long_name='Non-precipitating Condensate (Water+Ice)'
+  name='QC'
+  long_name='Cloud Water (Liquid)'
   units='g/kg'
   call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
                                  save3Dbin,dompi,rank,nsubdomains)
@@ -412,42 +410,41 @@ end if
   end do
 #endif
 
-if(doprecip) then
-  nfields1=nfields1+1
-  do k=1,nzm
-   do j=1,ny
-    do i=1,nx
-      tmp(i,j,k)=(qpl(i,j,k)+qpi(i,j,k))*1.e3
-    end do
-   end do
-  end do
-  name='QP'
-  long_name='Precipitating Water (Rain+Snow)'
-  units='g/kg'
-  call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
-                                 save3Dbin,dompi,rank,nsubdomains)
-end if
+! if(doprecip) then
+!   nfields1=nfields1+1
+!   do k=1,nzm
+!    do j=1,ny
+!     do i=1,nx
+!       tmp(i,j,k)=(qpl(i,j,k)+qpi(i,j,k))*1.e3
+!     end do
+!    end do
+!   end do
+!   name='QP'
+!   long_name='Precipitating Water (Rain+Snow)'
+!   units='g/kg'
+!   call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
+!                                  save3Dbin,dompi,rank,nsubdomains)
+! end if
 
-! turning off 3D micro prognostic variable output for HISCALE tracking run - HX
-! do n = 1,nmicro_fields
-!    if(docloud.AND.flag_micro3Dout(n).gt.0.AND.n.ne.index_water_vapor) then
-!       nfields1=nfields1+1
-!       do k=1,nzm
-!          do j=1,ny
-!             do i=1,nx
-!                tmp(i,j,k)=micro_field(i,j,k,n)*mkoutputscale(n)
-!             end do
-!          end do
-!          ! remove factor of rho from number, if this field is a number concentration
-!          if(flag_number(n).gt.0) tmp(:,:,k) = tmp(:,:,k)*rho(k)
-!       end do
-!       name=TRIM(mkname(n))
-!       long_name=TRIM(mklongname(n))
-!       units=TRIM(mkunits(n))
-!       call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
-!            save3Dbin,dompi,rank,nsubdomains)
-!    end if
-! end do
+do n = 1,nmicro_fields
+   if(docloud.AND.flag_micro3Dout(n).gt.0.AND.n.ne.index_water_vapor) then
+      nfields1=nfields1+1
+      do k=1,nzm
+         do j=1,ny
+            do i=1,nx
+               tmp(i,j,k)=micro_field(i,j,k,n)*mkoutputscale(n)
+            end do
+         end do
+         ! remove factor of rho from number, if this field is a number concentration
+         if(flag_number(n).gt.0) tmp(:,:,k) = tmp(:,:,k)*rho(k)
+      end do
+      name=TRIM(mkname(n))
+      long_name=TRIM(mklongname(n))
+      units=TRIM(mkunits(n))
+      call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
+           save3Dbin,dompi,rank,nsubdomains)
+   end if
+end do
 #ifdef CLUBB
 if( doclubb ) then ! dschanen UWM 28 May 2008
 
