@@ -1,4 +1,3 @@
-     
 subroutine write_fields3D
 
 use vars
@@ -10,19 +9,7 @@ use sgs_params
 use rad, only: qrad
 use sgs, only: tke
 
-#ifdef ATEX
-use domain
-use tracers, only: tracer, tracername
-#elif DYCOMSRF01
-use domain
-use tracers, only: tracer, tracername
-#elif BOMEX
-use domain
-use tracers, only: tracer, tracername
-#elif HISCALE
-use domain
-use tracers, only: tracer, tracername
-#elif LASSO_ENA
+#if defined(ATEX) || defined(DYCOMSRF01) || defined(BOMEX) || defined(HISCALE) || defined(LASSO_ENA)
 use domain
 use tracers, only: tracer, tracername
 #endif
@@ -30,7 +17,11 @@ use tracers, only: tracer, tracername
 use params
 use microphysics, only: nmicro_fields, micro_field, flag_number, &
      flag_micro3Dout, mkname, mklongname, mkunits, mkoutputscale, &
+#if defined(LASSO_ENA) && defined(CALC_RADAR_REFL)
+     index_water_vapor, GET_reffc, Get_reffi, refl
+#else
      index_water_vapor, GET_reffc, Get_reffi
+#endif
 use rad, only: rel_rad, rei_rad
 implicit none
 character *120 filename
@@ -48,7 +39,16 @@ real(4) tmp(nx,ny,nzm)
 real, external :: LIN_INT
 #endif
 
+#ifdef LASSO_ENA
+! LASSO_ENA by default does not output QP.
+! Also QN is replaced by QCL.
 nfields= 8 ! number of 3D fields to save
+#else
+nfields = 9
+#endif
+#if defined(LASSO_ENA) && defined(CALC_RADAR_REFL)
+nfields = nfields + 1 ! add one for radar reflectivity
+#endif
 #ifdef CLUBB
 if( .not.docloud .and. .not.(doclubb.or.doclubbnoninter ) ) nfields=nfields-1 ! dschanen UWM 19 June
 #else
@@ -64,20 +64,11 @@ if((dolongwave.or.doshortwave).and..not.doradhomo) nfields=nfields+1
 if(compute_reffc.and.(dolongwave.or.doshortwave).and.rad3Dout) nfields=nfields+1
 if(compute_reffi.and.(dolongwave.or.doshortwave).and.rad3Dout) nfields=nfields+1
 
-#ifdef ATEX
-nfields = nfields + ntracers
-#elif DYCOMSRF01
-nfields = nfields + ntracers
-#elif BOMEX
-nfields = nfields + ntracers
-#elif HISCALE
-nfields = nfields + ntracers
-#elif LASSO_ENA
+#if defined(ATEX) || defined(DYCOMSRF01) || defined(BOMEX) || defined(LASSO_ENA) || defined(HISCALE)
 nfields = nfields + ntracers
 #endif
 
 nfields1=0
-
 
 if(masterproc.or.output_sep) then
 
@@ -313,6 +304,7 @@ if(docloud .or.doclubb.or.doclubbnoninter) then ! dschanen UWM 19 June 2007
 #else
 if(docloud) then
 #endif  
+#ifdef LASSO_ENA
   nfields1=nfields1+1
   do k=1,nzm
    do j=1,ny
@@ -321,110 +313,46 @@ if(docloud) then
     end do
    end do
   end do
-  name='QC'
+  name='QCL'
   long_name='Cloud Water (Liquid)'
   units='g/kg'
   call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
                                  save3Dbin,dompi,rank,nsubdomains)
+#else
+  nfields1=nfields1+1
+  do k=1,nzm
+   do j=1,ny
+    do i=1,nx
+      tmp(i,j,k)=(qcl(i,j,k)+qci(i,j,k))*1.e3
+    end do
+   end do
+  end do
+  name='QN'
+  long_name='Cloud Water (Liquid+Ice)'
+  units='g/kg'
+  call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
+                                 save3Dbin,dompi,rank,nsubdomains)
+#endif
 end if
 
-#ifdef ATEX
-  do n = 1, ntracers
-    nfields1=nfields1+1
-    do k=1,nzm
-      do j=1,ny
-        do i=1,nx
-          tmp(i,j,k)=tracer(i,j,k,n)
-        end do
-      end do
+#ifndef LASSO_ENA
+! This becomes redundant when we have the 3D output below.
+if(doprecip) then
+  nfields1=nfields1+1
+  do k=1,nzm
+   do j=1,ny
+    do i=1,nx
+      tmp(i,j,k)=(qpl(i,j,k)+qpi(i,j,k))*1.e3
     end do
-    name=trim(tracername(n))
-    long_name=trim(tracername(n))
-    units='kg/kg'
-    call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
-                                  save3Dbin,dompi,rank,nsubdomains)
+   end do
   end do
-#elif DYCOMSRF01
-  do n = 1, ntracers
-    nfields1=nfields1+1
-    do k=1,nzm
-      do j=1,ny
-        do i=1,nx
-          tmp(i,j,k)=tracer(i,j,k,n)
-        end do
-      end do
-    end do
-    name=trim(tracername(n))
-    long_name=trim(tracername(n))
-    units='kg/kg'
-    call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
-                                  save3Dbin,dompi,rank,nsubdomains)
-  end do
-#elif BOMEX
-  do n = 1, ntracers
-    nfields1=nfields1+1
-    do k=1,nzm
-      do j=1,ny
-        do i=1,nx
-          tmp(i,j,k)=tracer(i,j,k,n)
-        end do
-      end do
-    end do
-    name=trim(tracername(n))
-    long_name=trim(tracername(n))
-    units='kg/kg'
-    call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
-                                  save3Dbin,dompi,rank,nsubdomains)
-  end do
-#elif HISCALE
-  do n = 1, ntracers
-    nfields1=nfields1+1
-    do k=1,nzm
-      do j=1,ny
-        do i=1,nx
-          tmp(i,j,k)=tracer(i,j,k,n)
-        end do
-      end do
-    end do
-    name=trim(tracername(n))
-    long_name=trim(tracername(n))
-    units='kg/kg'
-    call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
-                                  save3Dbin,dompi,rank,nsubdomains)
-  end do
-#elif LASSO_ENA
-  do n = 1, ntracers
-    nfields1=nfields1+1
-    do k=1,nzm
-      do j=1,ny
-        do i=1,nx
-          tmp(i,j,k)=tracer(i,j,k,n)
-        end do
-      end do
-    end do
-    name=trim(tracername(n))
-    long_name=trim(tracername(n))
-    units='kg/kg'
-    call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
-                                  save3Dbin,dompi,rank,nsubdomains)
-  end do
+  name='QP'
+  long_name='Precipitating Water (Rain+Snow)'
+  units='g/kg'
+  call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
+                                 save3Dbin,dompi,rank,nsubdomains)
+end if
 #endif
-
-! if(doprecip) then
-!   nfields1=nfields1+1
-!   do k=1,nzm
-!    do j=1,ny
-!     do i=1,nx
-!       tmp(i,j,k)=(qpl(i,j,k)+qpi(i,j,k))*1.e3
-!     end do
-!    end do
-!   end do
-!   name='QP'
-!   long_name='Precipitating Water (Rain+Snow)'
-!   units='g/kg'
-!   call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
-!                                  save3Dbin,dompi,rank,nsubdomains)
-! end if
 
 do n = 1,nmicro_fields
    if(docloud.AND.flag_micro3Dout(n).gt.0.AND.n.ne.index_water_vapor) then
@@ -445,165 +373,43 @@ do n = 1,nmicro_fields
            save3Dbin,dompi,rank,nsubdomains)
    end if
 end do
+
+#if defined(LASSO_ENA) && defined(CALC_RADAR_REFL)
+nfields1=nfields1+1
+do k=1,nzm
+ do j=1,ny
+  do i=1,nx
+    tmp(i,j,k)=refl(i,j,k)
+  end do
+ end do
+end do
+name='REFL'
+long_name='RADAR REFLECTIVITY'
+units='dBz'
+call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
+                               save3Dbin,dompi,rank,nsubdomains)
+#endif
+
+#if defined(ATEX) || defined(DYCOMSRF01) || defined(BOMEX) || defined(HISCALE) || defined(LASSO_ENA)
+  do n = 1, ntracers
+    nfields1=nfields1+1
+    do k=1,nzm
+      do j=1,ny
+        do i=1,nx
+          tmp(i,j,k)=tracer(i,j,k,n)
+        end do
+      end do
+    end do
+    name=trim(tracername(n))
+    long_name=trim(tracername(n))
+    units='kg/kg'
+    call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
+                                  save3Dbin,dompi,rank,nsubdomains)
+  end do
+#endif
+
 #ifdef CLUBB
-if( doclubb ) then ! dschanen UWM 28 May 2008
-
-  nfields1=nfields1+1
-   do k=1,nzm
-    do j=1,ny
-     do i=1,nx
-       tmp(i,j,k)=lin_int( real( upwp(i,j,k+1) ), real( upwp(i,j,k) ), zi(k+1), zi(k), z(k) )
-     end do
-    end do
-   end do
-   name='UPWP'
-   long_name="U'W'"
-   units='m^2/s^2'
-   call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
-                   save3Dbin,dompi,rank,nsubdomains)
-
-  nfields1=nfields1+1
-   do k=1,nzm
-    do j=1,ny
-     do i=1,nx
-       tmp(i,j,k)=lin_int( real( vpwp(i,j,k+1) ), real( vpwp(i,j,k) ), zi(k+1), zi(k), z(k) )
-
-     end do
-    end do
-   end do
-   name='VPWP'
-   long_name="U'W'"
-   units='m^2/s^2'
-   call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
-                   save3Dbin,dompi,rank,nsubdomains)
-
-  nfields1=nfields1+1
-   do k=1,nzm
-    do j=1,ny
-     do i=1,nx
-       tmp(i,j,k)=lin_int( real( up2(i,j,k+1) ), real( up2(i,j,k) ), zi(k+1), zi(k), z(k) )
-     end do
-    end do
-   end do
-   name='UP2'
-   long_name="U'^2'"
-   units='m^2/s^2'
-   call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
-                   save3Dbin,dompi,rank,nsubdomains)
-
-  nfields1=nfields1+1
-   do k=1,nzm
-    do j=1,ny
-     do i=1,nx
-       tmp(i,j,k)=lin_int( real( vp2(i,j,k+1) ), real( vp2(i,j,k) ), zi(k+1), zi(k), z(k) )
-     end do
-    end do
-   end do
-   name='VP2'
-   long_name="V'^2'"
-   units='m^2/s^2'
-   call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
-                   save3Dbin,dompi,rank,nsubdomains)
-
-  nfields1=nfields1+1
-   do k=1,nzm
-    do j=1,ny
-     do i=1,nx
-       tmp(i,j,k)=lin_int( real( wp2(i,j,k+1) ), real( wp2(i,j,k) ), zi(k+1), zi(k), z(k) )
-     end do
-    end do
-   end do
-   name='WP2'
-   long_name="W'^2'"
-   units='m^2/s^2'
-   call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
-                   save3Dbin,dompi,rank,nsubdomains)
-
-  nfields1=nfields1+1
-   do k=1,nzm
-    do j=1,ny
-     do i=1,nx
-       tmp(i,j,k)=lin_int( real( wpthlp(i,j,k+1) ), real( wpthlp(i,j,k) ), zi(k+1), zi(k), z(k) )
-     end do
-    end do
-   end do
-   name='WPTHLP'
-   long_name="w'theta_l'"
-   units='m K/s'
-   call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
-                   save3Dbin,dompi,rank,nsubdomains)
-
-  nfields1=nfields1+1
-   do k=1,nzm
-    do j=1,ny
-     do i=1,nx
-       tmp(i,j,k)=lin_int( real( wprtp(i,j,k+1) ), real( wprtp(i,j,k) ), zi(k+1), zi(k), z(k) )
-     end do
-    end do
-   end do
-   name='WPRTP'
-   long_name="w'r_t'"
-   units='kg m/kg s'
-   call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
-                   save3Dbin,dompi,rank,nsubdomains)
-
-  nfields1=nfields1+1
-   do k=1,nzm
-    do j=1,ny
-     do i=1,nx
-       tmp(i,j,k)=real( cloud_frac(i,j,k+1) )
-     end do
-    end do
-   end do
-   name='CLD_FRAC'
-   long_name="Cloud Fraction"
-   units='-'
-   call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
-                   save3Dbin,dompi,rank,nsubdomains)
-
-  nfields1=nfields1+1
-   do k=1,nzm
-    do j=1,ny
-     do i=1,nx
-       tmp(i,j,k)=real( wp3(i,j,k+1) )
-     end do
-    end do
-   end do
-   name='WP3'
-   long_name="w'^3"
-   units='m^3/s^3'
-   call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
-                   save3Dbin,dompi,rank,nsubdomains)
-
-
-  nfields1=nfields1+1
-   do k=1,nzm
-    do j=1,ny
-     do i=1,nx
-       tmp(i,j,k)=real( um(i,j,k+1) )
-     end do
-    end do
-   end do
-   name='UM'
-   long_name='CLUBB u wind'
-   units='m/s'
-   call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
-                   save3Dbin,dompi,rank,nsubdomains)
-
-  nfields1=nfields1+1
-   do k=1,nzm
-    do j=1,ny
-     do i=1,nx
-       tmp(i,j,k)=real( vm(i,j,k+1) )
-     end do
-    end do
-   end do
-   name='VM'
-   long_name='CLUBB v wind'
-   units='m/s'
-   call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
-                   save3Dbin,dompi,rank,nsubdomains)
-end if 
+#include "clubb_3d_out.inc"
 #endif
 
   call task_barrier()
@@ -621,9 +427,9 @@ end if
        print*, 'Appending 3D data. file:'//filename
     end if
   endif
-
  
-end
+end subroutine write_fields3D
+
 #ifdef CLUBB
 !-------------------------------------------------------------------------------
 FUNCTION LIN_INT( var_high, var_low, height_high, height_low, height_int )

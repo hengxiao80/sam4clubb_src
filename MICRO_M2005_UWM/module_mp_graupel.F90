@@ -1059,6 +1059,9 @@ END SUBROUTINE MP_GRAUPEL
 #ifdef CLUBB
                         CF3D, & ! Cloud fraction from clubb
 #endif /*CLUBB*/
+#if defined(LASSO_ENA) && defined(CALC_RADAR_REFL)
+                        refl1d, calc_radar_refl, &
+#endif
                         PRC, PRA,  &
                         PSMLT, EVPMS, PRACS, EVPMG, PRACG, PRE, PGMLT,  &
                         MNUCCC, PSACWS, PSACWI, QMULTS, QMULTG, PSACWG, PGSACW,  &
@@ -1437,6 +1440,11 @@ END SUBROUTINE MP_GRAUPEL
 #else 
       REAL ::EP_2 ! Dry air gas constant over water vapor gas constant [-]
       EP_2 = rgas / rv
+#endif
+
+#if defined(LASSO_ENA) && defined(CALC_RADAR_REFL)
+     logical, intent(in) :: calc_radar_refl
+     real, dimension(kms:kme), intent(out) :: refl1d
 #endif
 !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 
@@ -5414,6 +5422,14 @@ END SUBROUTINE MP_GRAUPEL
 
  400         CONTINUE
 
+#if defined(LASSO_ENA) && defined(CALC_RADAR_REFL)
+      ! add reflectivity calculations
+      ! only calculate if logical parameter calc_radar_refl = .true.
+      refl1d(:) = 0.
+      if (calc_radar_refl) then
+        call calc_refl10cm (QV3D, QR3D, QNI3D, QG3D, T3D, PRES, refl1d, kts, kte, i, j, NR3D, NS3D, NG3D)
+      endif
+#endif
 ! ALL DONE !!!!!!!!!!!
       RETURN
       END  SUBROUTINE M2005MICRO_GRAUPEL
