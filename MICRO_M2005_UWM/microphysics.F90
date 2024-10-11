@@ -774,7 +774,7 @@ use grid, only: z, zi
 use vars, only: t,  gamaz, precsfc, precflux, qpfall, tlat, prec_xy, &
      nstep, nstatis, icycle, total_water_prec
 
-#if defined(UWM_STATS) || defined(LASSO_ENA_3D_MICRO_OUTPUT)
+#if defined(UWM_STATS) || defined(LASSO_ENA_3D_MICRO_OUTPUT) || (defined(LASSO_ENA) && defined(CALC_RADAR_REFL))
 use grid, only: nsave3D, nsave3dstart, nsave3dend
 #endif
 #ifdef UWM_STATS
@@ -890,7 +890,7 @@ real qtog_before(dimx1_s:dimx2_s, dimy1_s:dimy2_s, nzm)
 real qtog_avg(nzm), qtog_before_avg(nzm)
 #endif /*PNNL_STATS*/
 
-#if !defined(LASSO_ENA) && !defined(CALC_RADAR_REFL)
+#if defined(LASSO_ENA) && defined(CALC_RADAR_REFL)
 logical :: calc_radar_refl
 #endif
 call t_startf ('micro_proc')
@@ -1151,7 +1151,7 @@ do j = 1,ny
       tmpng(:) = 0.
 
 #if defined(LASSO_ENA) && defined(CALC_RADAR_REFL)
-      refl1d(:) = 0.
+      refl1d(:) = 0. 
 #endif
       ! get microphysical quantities in this grid column
       tmpqv(:) = micro_field(i,j,:,iqv) !bloss/qt: This is total water (qv+qcl)
@@ -1537,7 +1537,7 @@ endif
       if(dopredictNc) micro_field(i,j,:,incl) = tmpncl(:)
       reffc(i,j,:) = effc1d(:)
 #if defined(LASSO_ENA) && defined(CALC_RADAR_REFL)
-      if (calc_radar_refl) then refl(i,j,:) = refl1d(:)
+      if (calc_radar_refl) refl(i,j,:) = refl1d(:)
 #endif
 
       if(doicemicro) then
@@ -2797,7 +2797,7 @@ end if
 #endif /* UWM_STATS */
 
 ! Microphysical process rates +++mhwnag
-#include "mhwang_hbuf_put.inc"
+#include "mhwang_stats_hbuf_put.inc"
 
 #ifdef UWM_STATS
 #include "uwm_stats_hbuf_put.inc"

@@ -1431,6 +1431,10 @@ END SUBROUTINE MP_GRAUPEL
       REAL, DIMENSION(KMS:KME) ::  QG3D_INIT               ! Tempary variable for GRAUPEL MIX RATIO (KG/KG)
       REAL, DIMENSION(KMS:KME) ::  NG3D_INIT               ! Tempary variable for GRAUPEL NUMBER CONC (1/KG)
 
+#if defined(LASSO_ENA) && defined(CALC_RADAR_REFL)
+     logical, intent(in) :: calc_radar_refl
+     real, dimension(kms:kme), intent(out) :: refl1d
+#endif
 
 #ifdef CLUBB
       REAL :: QV_INIT ! Temporary variable for vapor
@@ -1442,10 +1446,6 @@ END SUBROUTINE MP_GRAUPEL
       EP_2 = rgas / rv
 #endif
 
-#if defined(LASSO_ENA) && defined(CALC_RADAR_REFL)
-     logical, intent(in) :: calc_radar_refl
-     real, dimension(kms:kme), intent(out) :: refl1d
-#endif
 !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 
 ! SET LTRUE INITIALLY TO 0
@@ -5427,7 +5427,7 @@ END SUBROUTINE MP_GRAUPEL
       ! only calculate if logical parameter calc_radar_refl = .true.
       refl1d(:) = 0.
       if (calc_radar_refl) then
-        call calc_refl10cm (QV3D, QR3D, QNI3D, QG3D, T3D, PRES, refl1d, kts, kte, i, j, NR3D, NS3D, NG3D)
+        call calc_refl10cm (QV3D, QR3D, QNI3D, QG3D, T3D, PRES, refl1d, kts, kte, 0, 0, NR3D, NS3D, NG3D)
       endif
 #endif
 ! ALL DONE !!!!!!!!!!!
