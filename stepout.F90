@@ -49,13 +49,18 @@ if(mod(nstep,nstat).eq.0) then
 
   call t_startf ('stat_out')
 
+  ! write out instrument simulator data and compute domain means for statistics
+  !bloss(2016-02-06): This needs to be called before hbuf_avg for the simulator
+  !  cloud fraction to be recorded at the first statistics output.
+  call isccp_write()
+  call modis_write()
+  call misr_write()
+
   call hbuf_average(nstatsteps)
   call hbuf_write(nstatsteps)
   call hbuf_flush()	  
   nstatsteps = 0
-  call isccp_write()
-  call modis_write()
-  call misr_write()
+
   call zero_instr_diag()
 
   call t_stopf ('stat_out')
@@ -107,7 +112,7 @@ if(mod(nstep,nsave2D).eq.0.and.nstep.ge.nsave2Dstart &
   call write_fields2D()
 endif
 
-if(.not.save2Davg.or.nstep.eq.nsave2Dstart-nsave2D) call stat_2Dinit()
+if(.not.save2Davg.or.nstep.eq.nsave2Dstart-nsave2D) call stat_2Dinit(0) ! argument of 0 means storage terms for statistics are preserved
 
 call t_stopf ('2D_out')
 
@@ -305,13 +310,14 @@ if(mod(nstep,nprint).eq.0) then
    994 format(' precipitation (mm):',F16.11)
    995 format(' large-scale (mm):  ',F16.11)
    996 format(' Imbalance (mm)    ',F16.11)
-   print*,' imbalance (rel error):', &
-     (total_water_after-(total_water_before+total_water_evap+total_water_ls-total_water_prec))/total_water_after
    print*,'evap (mm/day):',total_water_evap/dt*86400.
    print*,'prec (mm/day):',total_water_prec/dt*86400.
    print*,'ls (mm/day):',total_water_ls/dt*86400.
    print*,'imbalance (mm/day)', &
      (total_water_after-total_water_before-total_water_evap-total_water_ls+total_water_prec)/dt*86400.
+   print*,' imbalance (rel error):', &
+     (total_water_after-(total_water_before+total_water_evap+total_water_ls-total_water_prec))/total_water_after
+   print*,'==========================='
 
  end if
 

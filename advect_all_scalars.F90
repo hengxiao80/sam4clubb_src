@@ -11,6 +11,8 @@ subroutine advect_all_scalars()
   implicit none
   real dummy(nz)
   integer k
+  logical do_poslimit
+  logical compute_variance_stats
 #ifdef PNNL_STATS
   integer i,j
   real qpl_incl_bndry(dimx1_s:dimx2_s,dimy1_s:dimy2_s,nzm)
@@ -87,32 +89,28 @@ subroutine advect_all_scalars()
 !---------------------------------------------------------
 !      advection of scalars :
 
-     call advect_scalar(t,tadv,twle,t2leadv,t2legrad,twleadv,.true.)
+     do_poslimit = .false.
+     compute_variance_stats = .true.
+     call advect_scalar(t,tadv,twle,t2leadv,t2legrad,twleadv,do_poslimit,compute_variance_stats)
     
 !
 !    Advection of microphysics prognostics:
 !
 
+     do_poslimit = .true.
      do k = 1,nmicro_fields
-        if(   k.eq.index_water_vapor             &! transport water-vapor variable no metter what
-         .or. docloud.and.flag_precip(k).ne.1    & ! transport non-precipitation vars
-         .or. doprecip.and.flag_precip(k).eq.1 ) &
-#ifndef UWM_STATS /*Vanilla SAM advects all microphysics prognostics, but doesn't compute budgets for any of them */
-           call advect_scalar(micro_field(:,:,:,k),mkadv(:,k),mkwle(:,k),dummy,dummy,dummy,.false.)
-#else
-        then ! in order to keep consistent with vanilla SAM, leave line continuation
-
-          if (   k.eq.index_water_vapor) then
-             !UWM wants to compute the total water vapor budget.
-             call advect_scalar(micro_field(:,:,:,k),mkadv(:,k),mkwle(:,k),&
-                              q2leadv,q2legrad,qwleadv,.true.)
-          else
-             !UWM does not want any other microphyscis prognostics to be included
-             !in the budgets.
-             call advect_scalar(micro_field(:,:,:,k),mkadv(:,k),mkwle(:,k),dummy,dummy,dummy,.false.)
-          endif !index water vapor
-        endif ! vanilla SAM line continuation
-#endif
+        if(k.eq.index_water_vapor) then
+          ! transport water-vapor variable no metter what
+          compute_variance_stats = .true.
+          call advect_scalar(micro_field(:,:,:,k),mkadv(:,k),mkwle(:,k), &
+               q2leadv,q2legrad,qwleadv,do_poslimit,compute_variance_stats)
+        elseif (flag_advect(k).eq.1) then
+!!$        elseif ((docloud.and.flag_precip(k).ne.1)   & 
+!!$             .or.(doprecip.and.flag_precip(k).eq.1) ) then
+          compute_variance_stats = .false.
+          call advect_scalar(micro_field(:,:,:,k),mkadv(:,k),mkwle(:,k), &
+               dummy,dummy,dummy,do_poslimit,compute_variance_stats)
+        end if
      end do
 
 #ifdef UWM_MISC
@@ -273,8 +271,11 @@ subroutine advect_all_scalars()
 !
 
      if(dosgs.and.advect_sgs) then
+       do_poslimit = .true. !bloss: Is positivity a good assumption here??
+       compute_variance_stats = .false.
        do k = 1,nsgs_fields
-           call advect_scalar(sgs_field(:,:,:,k),sgsadv(:,k),sgswle(:,k),dummy,dummy,dummy,.false.)
+           call advect_scalar(sgs_field(:,:,:,k),sgsadv(:,k),sgswle(:,k),dummy,dummy,dummy, &
+                do_poslimit,compute_variance_stats)
        end do
      end if
 
@@ -301,9 +302,11 @@ subroutine advect_all_scalars()
  ! advection of tracers:
 
      if(dotracers) then
-
+       do_poslimit = .true. !bloss: Is positivity a good assumption here??
+       compute_variance_stats = .false.
         do k = 1,ntracers
-         call advect_scalar(tracer(:,:,:,k),tradv(:,k),trwle(:,k),dummy,dummy,dummy,.false.)
+         call advect_scalar(tracer(:,:,:,k),tradv(:,k),trwle(:,k),dummy,dummy,dummy, &
+                do_poslimit,compute_variance_stats)
         end do
 
      end if

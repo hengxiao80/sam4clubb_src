@@ -2,7 +2,7 @@
 subroutine subsidence()
 	
 use vars
-use microphysics, only: micro_field, index_water_vapor, nmicro_fields, mklsadv
+use microphysics, only: micro_field, index_water_vapor, nmicro_fields, mklsadv, flag_advect
 #ifdef UWM_MISC
 ! Change to apply subsidence to tracers
 use tracers, only: tracer, tradv
@@ -78,11 +78,11 @@ do k=2,nzm-1
   !    when index_water_vapor refers to something other than total 
   !    water (i.e., vapor+cloud).
   do n = 1,nmicro_fields
-     if(n.ne.index_water_vapor) then
+     if((flag_advect(n).eq.1).AND.(n.ne.index_water_vapor)) then
         do j=1,ny
            do i=1,nx
               dq = - rdz * (micro_field(i,j,k1,n)-micro_field(i,j,k2,n))
-              micro_field(i,j,k,n) = micro_field(i,j,k,n) + dtn*dq
+              micro_field(i,j,k,n) = MAX(0., micro_field(i,j,k,n) + dtn*dq )
               mklsadv(k,n) = mklsadv(k,n) + dq
            end do
         end do

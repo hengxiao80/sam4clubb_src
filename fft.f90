@@ -1,5 +1,5 @@
       subroutine fft991_crm(a,work,trigs,ifax,inc,jump,n,lot,isign)
-      real a(*),work(*),trigs(*)
+      real(8) a(*),work(*),trigs(*)
       integer ifax(*)
       nfax=ifax(1)
       nx=n+1
@@ -78,7 +78,7 @@
 
       subroutine fftfax_crm(n,ifax,trigs)
       integer ifax(13)
-      real trigs(1)
+      real(8) trigs(1)
       data mode /3/
       call fax_crm (ifax, n, mode)
       i = ifax(1)
@@ -149,8 +149,8 @@
 
 
       subroutine fftrig_crm(trigs,n,mode)
-      real trigs(*), pi, del, angle
-      pi=2.0*asin(1.0)
+      real(8) trigs(*), pi, del, angle
+      pi=2.0_8*asin(1.0_8)
       imode=iabs(mode)
       nn=n
       if (imode.gt.1.and.imode.lt.6) nn=n/2
@@ -200,8 +200,8 @@
 
 
       subroutine fft99a_crm(a,work,trigs,inc,jump,n,lot)
-      real a(*),work(*),trigs(*)
-      real c,s
+      real(8) a(*),work(*),trigs(*)
+      real(8) c,s
       nh=n/2
       nx=n+1
       ink=inc+inc
@@ -265,8 +265,8 @@
 
 
       subroutine fft99b_crm(work,a,trigs,inc,jump,n,lot)
-      real work(*),a(*),trigs(*)
-      real scale,c,s
+      real(8) a(*),work(*),trigs(*)
+      real(8) scale,c,s
       nh=n/2
       nx=n+1
       ink=inc+inc
@@ -334,9 +334,9 @@
 
       subroutine vpassm_crm &
         (a,b,c,d,trigs,inc1,inc2,inc3,inc4,lot,n,ifac,la)
-      real a(*),b(*),c(*),d(*),trigs(*)
-      real c1,c2,c3,c4,s1,s2,s3,s4
-      real sin36/0.587785252292473/,cos36/0.809016994374947/, &
+      real(8) a(*),b(*),c(*),d(*),trigs(*)
+      real(8) c1,c2,c3,c4,s1,s2,s3,s4
+      real(8) sin36/0.587785252292473/,cos36/0.809016994374947/, &
           sin72/0.951056516295154/,cos72/0.309016994374947/, &
           sin60/0.866025403784437/
       m=n/ifac
@@ -637,7 +637,7 @@
 
         subroutine cosft_crm(a,work,trigs,ifax,inc,jump,n,lot,isign)
         implicit none
-        real a(*),work(*),trigs(*)
+        real(8) a(*),work(*),trigs(*)
         INTEGER ifax(*),inc,jump,n,lot,isign
 !
 ! Cosine Fourier Transform on quarter-wavelength shifted data.

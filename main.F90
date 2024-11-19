@@ -64,6 +64,8 @@ use compute_correlation_module, only: &
 implicit none
 
 integer k, icyc, nn, nstatsteps
+double precision cputime, oldtime, init_time, elapsed_time !bloss wallclocktime
+double precision usrtime, systime
 
 #ifdef SILHS
 logical :: dostatis_save, doclubb_save
@@ -115,6 +117,10 @@ if(masterproc) call header()
    call t_startf ('total')
    call t_startf ('initialize')
 !------------------------------------------------------------------
+! Get initial time of job
+
+   call t_stampf(init_time,usrtime,systime)
+!------------------------------------------------------------------
 
 call init()     ! initialize some statistics arrays
 call setparm()	! set all parameters and constants
@@ -147,11 +153,10 @@ else
 endif
 
 call init_movies()
-call stat_2Dinit()
+call stat_2Dinit(1) ! argument of 1 means storage terms in stats are reset
 call tracers_init() ! initialize tracers
 call setforcing()
 if(masterproc) call printout()
-
 !------------------------------------------------------------------
 !  Initialize statistics buffer:
 
@@ -181,8 +186,7 @@ do while(nstep.lt.nstop.and.nelapse.gt.0)
 
   call kurant()
 
-  total_water_before = 0.
-  total_water_after = 0.
+  total_water_before = total_water()
   total_water_evap = 0.
   total_water_prec = 0.
   total_water_ls = 0.
@@ -287,12 +291,7 @@ do while(nstep.lt.nstop.and.nelapse.gt.0)
      call zero()
 
 !-----------------------------------------------------------
-
-     total_water_before = total_water_before + total_water()
-
-!-----------------------------------------------------------
 !       Buoyancy term:
-
 	     
      call buoyancy()
 
@@ -404,7 +403,9 @@ do while(nstep.lt.nstop.and.nelapse.gt.0)
 !-----------------------------------------------------------
 !       Handle upper boundary for scalars
 
+     total_water_ls =  total_water_ls - total_water() !bloss: Include any water changes in large-scale diagnostic
      if(doupperbound) call upperbound()
+     total_water_ls =  total_water_ls + total_water()
 
 !-----------------------------------------------------------
 !       Cloud condensation/evaporation and precipitation processes:
@@ -644,6 +645,7 @@ end if ! icyc.ne.ncycle
 #endif /*PNNL_STATS*/
    end do ! icycle	
           
+  total_water_after = total_water()
 !----------------------------------------------------------
 !  collect statistics, write save-file, etc.
 
@@ -668,6 +670,7 @@ deallocate ( corravg_count )
    call t_stopf('total')
    if(masterproc) call t_prf(rank)
 
+   if(masterproc) write(*,*) 'Finished with SAM, exiting...'
 #ifdef CLUBB
 ! Show that we have completed successfully. Used for scripting SAM runs.
 ! - nielsenb UWM 4/9/2008

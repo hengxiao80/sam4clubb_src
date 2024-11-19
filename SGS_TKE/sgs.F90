@@ -387,9 +387,10 @@ subroutine sgs_scalars()
       total_water_evap = total_water_evap - total_water()
 
       do k = 1,nmicro_fields
-        if(   k.eq.index_water_vapor             &! transport water-vapor variable no metter what
-         .or. docloud.and.flag_precip(k).ne.1    & ! transport non-precipitation vars
-         .or. doprecip.and.flag_precip(k).eq.1 ) then
+!!$        if(   k.eq.index_water_vapor             &! transport water-vapor variable no metter what
+!!$         .or. docloud.and.flag_precip(k).ne.1    & ! transport non-precipitation vars
+!!$         .or. doprecip.and.flag_precip(k).eq.1 ) then
+        if(flag_advect(k).eq.1) then
            fluxbtmp(1:nx,1:ny) = fluxbmk(1:nx,1:ny,k)
            fluxttmp(1:nx,1:ny) = fluxtmk(1:nx,1:ny,k)
 #ifdef UWM_STATS

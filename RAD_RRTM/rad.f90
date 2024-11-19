@@ -19,13 +19,88 @@ module rad
     !   - update to RRTMG LW v4.84
     !   - add extra layer to model top within rad_driver, rather than inatm_*w.
     !   - use instantaneous fields for radiation computation, rather than time-averaged.
+    !
+    ! Modified by Peter Blossey, May 2014.
+    !   - update to RRTMG SW v3.9 which include fix in lookup tables for cloud
+    !      liquid optical properties.  See AER's description of the update here:
+    !        http://rtweb.aer.com/rrtmg_sw_whats_new.html
+    !
+    ! Modified by Peter Blossey (with help from Robert Pincus), Sept 2015.
+    !   - Moved all "use" statements to top of module.  This seems to be
+    !      better fortran90 coding practice.
+    !   - Coupled radiation more tightly with instrument simulators in 
+    !      SRC/SIMULATORS/ by providing tau_067 and emis_105 with values from
+    !      closest RRTMG bands.
+    !   - Added tighter microphysics-coupling for M2005 and Thompson microphysics.
+    !      MICRO_M2005 uses CAM5 cloud optics lookup tables for cloud liquid, cloud ice
+    !      and snow.  MICRO_WRF (Thompson microphysics) uses the RRTMG lookup tables
+    !      for cloud liquid, cloud ice and snow.  Both routines use mass and other cloud
+    !      properties (mostly effective radius or generalized effective diameter for ice)
+    !      to determine the optical properties.  See the new modules for computing
+    !      cloud properties in m2005_cloud_optics.f90 and thompson_cloud_optics.f90.
+    !      These new cloud optics routines are enabled by default.  They can be disabled
+    !      in the microphysics namelists with 
+    !          dorrtm_cloud_optics_from_effrad_LegacyOption = .true.
+    !
+    ! Modified by Peter Blossey (with help from Robert Pincus), Feb 2016.
+    !   - providing separate optical depths for liquid, cloud ice and
+    !      snow to better couple with the MODIS simulator in SRC/SIMULATORS/.
+    !
     ! -------------------------------------------------------------------------- 
-  use grid, only : nx, ny, nz, nzm, compute_reffc, compute_reffi
-  use shr_orb_mod, only: shr_orb_params
+
+    ! -------------------------------------------------------------------------- 
+  use parkind, only : kind_rb, kind_im 
+  use params, only : ggr, coszrs, cp, ocean,  &
+       doshortwave, dolongwave, doradhomo,      &
+       doseasons, doperpetual, dosolarconstant, &
+       solar_constant, zenith_angle, nxco2, notracegases
+  use grid, only : nx, ny, nz, nzm, compute_reffc, compute_reffi, compute_reffl, &
+       icycle, dtn, dt, nstop, nstep, nstat, nrestart, nrad, day, day0, &
+       pres, presi, z, dz, adz, dompi, masterproc, nsubdomains,          &
+       dostatis, dostatisrad, nelapse, nrestart_skip, case, rundatadir, &
+       doisccp, domodis, domisr, &
+       restart_sep, caseid, case_restart, caseid_restart, rank, &
+       do_chunked_energy_budgets
+  use vars, only : t, tabs, qv, qcl, qci, qpl, sstxy, rho, t00, &
+       latitude, longitude,                         &
+                                ! Domain-average diagnostic fields
+       radlwup, radlwdn, radswup, radswdn, radqrlw, radqrsw, &
+                                ! 2D diagnostics
+       lwns_xy, lwnt_xy, swns_xy, swnt_xy, solin_xy, &      
+       lwnsc_xy, lwntc_xy, swnsc_xy, swntc_xy, &
+                                ! 1D diagnostics
+       s_flns, s_fsns, s_flnt, s_flntoa, s_fsnt, s_fsntoa, &
+       s_flnsc, s_fsnsc, s_flntoac, s_fsntoac, s_solin, &
+       s_fsds, s_flds
+
+  !
+  ! Radiation solvers
+  !
+  use rrlw_ncpar, only: cpdair, maxAbsorberNameLength, &
+       status, getAbsorberIndex
+  use rrtmg_sw_init, only: rrtmg_sw_ini
+  use rrtmg_lw_init, only: rrtmg_lw_ini
+  use rrtmg_sw_rad, only : rrtmg_sw
+  use rrtmg_lw_rad, only : rrtmg_lw
+  use rrtmg_lw_cldprop, &
+                     only: cldprop
+  use rrtmg_sw_cldprop, & 
+                    only : cldprop_sw
+  use parrrtm,      only : nbndlw ! Number of LW bands
+  use parrrsw,      only : nbndsw, naerec, jpband ! Number of SW bands
   use cam_rad_parameterizations, only : &
-    computeRe_Liquid, computeRe_Ice, albedo
-  use parkind, only : kind_rb ! RRTM expects reals with this kind parameter 
-                                   ! (8 byte reals) 
+       computeRe_Liquid, computeRe_Ice, albedo
+  use microphysics, only : micro_scheme_name, reffc, reffi, reffr, &
+                           dorrtm_cloud_optics_from_effrad_LegacyOption
+  use m2005_cloud_optics, &
+                    only : m2005_cloud_optics_init, compute_m2005_cloud_optics
+  use p3_cloud_optics, &
+                    only : p3_cloud_optics_init, compute_p3_cloud_optics
+  use thompson_cloud_optics, &
+                    only : thompson_cloud_optics_init, compute_thompson_cloud_optics
+
+  use shr_orb_mod, only: shr_orb_params, shr_orb_decl, shr_orb_cosz
+
   implicit none
   private
 
@@ -33,13 +108,24 @@ module rad
   public :: rad_driver, write_rad
   
   ! Public data
-  public :: qrad, lwnsxy, swnsxy, radqrcsw, radqrclw, &
+  public :: qrad, radqrcsw, radqrclw, &
+       qrad_lw, qradclr_lw, qrad_sw, qradclr_sw, & ! 3D heating rate arrays for energy budget outputs in mse.f90
+       swntxy, swntcxy, swnsxy, swnscxy, & ! instantaneous radiative fluxes at surface and TOA
+       lwntxy, lwntcxy, lwnsxy, lwnscxy, &
        do_output_clearsky_heating_profiles, &
-       rel_rad, rei_rad
+       tau_067, emis_105, rad_reffc, rad_reffi, &  ! For instrument simulators
+       tau_067_cldliq, tau_067_cldice, tau_067_snow, & ! for MODIS simulator: wants individual phases
+       isAllocatedIndividualQrad
+
 
   real, dimension(nx, ny, nzm) :: qrad ! Radiative heating rate (K/s) 
-  real, dimension(nx, ny)      :: lwnsxy, swnsxy ! Long- and short-wave radiative heating (W/m2)  
-  real(kind = kind_rb) :: rel_rad(nx,ny,nzm), rei_rad(nx,ny,nzm)
+  real, dimension(:,:,:), allocatable, save :: qrad_lw, qradclr_lw, qrad_sw, qradclr_sw
+  logical, save :: isAllocatedIndividualQrad = .false.
+  real, dimension(nx, ny)      :: lwntxy, lwntcxy, lwnsxy, lwnscxy,  &
+                                  swntxy, swntcxy, swnsxy, swnscxy ! Instantaneous long- and short-wave radiative fluxes (W/m2)  
+  real, dimension(nx, ny, nzm) :: tau_067, emis_105, &  ! Optical thickness at 0.67 microns, emissivity at 10.5 microns, for instrument simulators
+                                  tau_067_cldliq, tau_067_cldice, tau_067_snow, & ! for MODIS simulator: wants individual phases
+                                  rad_reffc, rad_reffi  ! Particle sizes assumed for radiation calculation when microphysics doesn't provide them
 
   logical, parameter :: do_output_clearsky_heating_profiles = .true.
   real, dimension(nzm) :: radqrclw, radqrcsw ! Domain-average diagnostic fields for clearsky radiation
@@ -65,8 +151,10 @@ module rad
   !
   ! Global storage
   !
-  logical :: initialized = .false. 
-
+  logical :: initialized = .false., use_m2005_cloud_optics = .false., &
+       use_p3_cloud_optics = .false., use_thompson_cloud_optics = .false., have_cloud_optics = .false.
+  real(KIND=kind_rb) :: land_frac = 1.
+  
   real, dimension(nx, ny) :: &
      lwDownSurface, lwDownSurfaceClearSky, lwUpSurface, lwUpSurfaceClearSky, & 
                                            lwUpToa,     lwUpToaClearSky,     &
@@ -107,44 +195,7 @@ module rad
 contains 
   ! ----------------------------------------------------------------------------
   subroutine rad_driver 
-    use grid, only : icycle, dtn, nstep, nstat, nrestart, nrad, day, &
-                     pres, presi, z,                          &
-                     dompi, masterproc, nsubdomains,          &
-                     dostatis, dostatisrad,            &
-                     day, day0, dz, adz, nstop, nelapse, nrestart_skip
-    use params, only : ggr, coszrs, cp, ocean,  &
-                     doshortwave, dolongwave, doradhomo,      &
-                     doseasons, doperpetual, dosolarconstant, &
-                     solar_constant, zenith_angle
 
-
-    use vars, only : t, tabs, qv, qcl, qci, sstxy, rho, t00, &
-      latitude, longitude,                         &
-      ! Domain-average diagnostic fields
-      radlwup, radlwdn, radswup, radswdn, radqrlw, radqrsw, &
-      ! 2D diagnostics
-      lwns_xy, lwnt_xy, swns_xy, swnt_xy, solin_xy, &      
-      lwnsc_xy, lwntc_xy, swnsc_xy, swntc_xy, &
-      ! 1D diagnostics
-      s_flns, s_fsns, s_flnt, s_flntoa, s_fsnt, s_fsntoa, &
-      s_flnsc, s_fsnsc, s_flntoac, s_fsntoac, s_solin, &
-      s_fsds, s_flds
-
-    !
-    ! Astronomy module, for computing solar zenith angle
-    !
-    use shr_orb_mod, only: shr_orb_params, shr_orb_decl
-    
-    !
-    ! Radiation solvers
-    !
-    use rrtmg_sw_rad, only : rrtmg_sw
-    use rrtmg_lw_rad, only : rrtmg_lw
-    use parrrtm,      only : nbndlw ! Number of LW bands
-    use parrrsw,      only : nbndsw, naerec ! Number of SW bands
-    use parkind,      only : kind_rb ! RRTM expects reals with this kind parameter 
-                                  ! (8 byte reals) 
-    use microphysics, only : Get_reffc, Get_reffi
     implicit none
     
     ! -------------------------------------------------------------------------- 
@@ -159,12 +210,30 @@ contains
     !bloss: add layer to top to improve top-of-model heating rates.
     real(kind = kind_rb), dimension(nx, nzm+1) ::     &
         layerP,     layerT, layerMass,         & ! layer mass is for convenience
-        LWP, IWP, liquidRe, iceRe, cloudFrac,  & ! liquid/ice water path (g/m2) and size (microns)
         h2ovmr,   o3vmr,    co2vmr,   ch4vmr, n2ovmr,  & ! Volume mixing ratios for H2O, O3, CH4, N20, CFCs
         o2vmr, cfc11vmr, cfc12vmr, cfc22vmr, ccl4vmr, &
         swHeatingRate, swHeatingRateClearSky,  &
         lwHeatingRate, lwHeatingRateClearSky, &
         duflx_dt, duflxc_dt
+        
+    ! Arrays for cloud optical properties or the physical properties needed by the RRTM internal parmaertizations
+    real(kind = kind_rb), dimension(nx, nzm+1) ::     &
+        LWP, IWP, liqRe, iceRe, cloudFrac             ! liquid/ice water path (g/m2) and size (microns)
+    real(kind = kind_rb), dimension(nbndlw, nx, nz+1) :: cloudTauLW = 0. 
+    real(kind = kind_rb), dimension(nbndsw, nx, nz+1) :: cloudTauSW = 0., cloudSsaSW = 0., &
+                                                         cloudAsmSW = 0., cloudForSW = 0., &
+                                                         cloudTauSW_cldliq = 0., &
+                                                         cloudTauSW_cldice = 0., &
+                                                         cloudTauSW_snow = 0.
+    real(kind = kind_rb), dimension(nx, nzm+1, nbndlw) :: dummyTauAerosolLW = 0. 
+    real(kind = kind_rb), dimension(nx, nzm+1, nbndsw) :: dummyAerosolProps = 0. 
+    real(kind = kind_rb), dimension(nx, nzm+1, naerec) :: dummyAerosolProps2 = 0. 
+    ! Arguments to RRTMG cloud optical depth routines
+    real(kind = kind_rb), dimension(nbndlw, nzm+1) :: prpLWIn
+    real(kind = kind_rb), dimension(nzm+1, nbndlw) :: tauLWOut
+    real(kind = kind_rb), dimension(nbndsw, nzm+1) :: prpSWIn
+    real(kind = kind_rb), dimension(nzm+1, jpband) :: tauSWOut, scaled1, scaled2, scaled3 
+    integer                                        :: ncbands  
                                 
     !bloss: add layer to top to improve top-of-model heating rates.
     real(kind = kind_rb), dimension(nx, nz+1)  :: interfaceP, interfaceT,        &
@@ -183,12 +252,6 @@ contains
     
     integer :: lat, i, j, k
     real(kind = kind_rb) :: dayForSW, delta
-    !bloss: add layer to top to improve top-of-model heating rates.
-    real(kind = kind_rb), dimension(nbndlw, nx, nz+1) :: dummyCloudPropsLW = 0. 
-    real(kind = kind_rb), dimension(nbndsw, nx, nz+1) :: dummyCloudPropsSW = 0. , dummyTauCloudSW = 0.
-    real(kind = kind_rb), dimension(nx, nzm+1, nbndlw) :: dummyTauAerosolLW = 0. 
-    real(kind = kind_rb), dimension(nx, nzm+1, nbndsw) :: dummyAerosolProps = 0. 
-    real(kind = kind_rb), dimension(nx, nzm+1, naerec) :: dummyAerosolProps2 = 0. 
     !
     ! 8 byte reals, I guess, used by MPI
     !
@@ -196,6 +259,11 @@ contains
     real(kind = 8),    dimension(nzm+1) :: radHeatingProfile, tempProfile
     
     real, external :: qsatw, qsati
+
+    !bloss: extra arrays for handling liquid-only and ice-only cloud optical depth
+    !   computation for MODIS simulator
+    real(kind = kind_rb), dimension(nx, nzm+1) ::     &
+        dummyWP, dummyRe, cloudFrac_liq, cloudFrac_ice ! liquid/ice water path (g/m2) and size (microns)
 
     ! ----------------------------------------------------------------------------
     if(icycle == 1) then   ! Skip subcycles (i.e. when icycle /= 1) 
@@ -222,6 +290,17 @@ contains
         radqrlw(:) = 0.; radqrsw(:) = 0.
         radqrclw(:) = 0.; radqrcsw(:) = 0.
         qrad(:, :, :) = 0. 
+
+	! set trace gas concentrations.  Assumed to be uniform in the horizontal.
+        o3vmr   (:, 1:nzm+1) = spread(o3   (:), dim = 1, ncopies = nx) 
+        co2vmr  (:, 1:nzm+1) = spread(co2  (:), dim = 1, ncopies = nx) 
+        ch4vmr  (:, 1:nzm+1) = spread(ch4  (:), dim = 1, ncopies = nx) 
+        n2ovmr  (:, 1:nzm+1) = spread(n2o  (:), dim = 1, ncopies = nx) 
+        o2vmr   (:, 1:nzm+1) = spread(o2   (:), dim = 1, ncopies = nx) 
+        cfc11vmr(:, 1:nzm+1) = spread(cfc11(:), dim = 1, ncopies = nx) 
+        cfc12vmr(:, 1:nzm+1) = spread(cfc12(:), dim = 1, ncopies = nx) 
+        cfc22vmr(:, 1:nzm+1) = spread(cfc22(:), dim = 1, ncopies = nx) 
+        ccl4vmr (:, 1:nzm+1) = spread(ccl4 (:), dim = 1, ncopies = nx) 
         !
         ! No concentrations for these gases
         !
@@ -242,17 +321,42 @@ contains
         ! Convert hPa to Pa in layer mass calculation (kg/m2) 
         layerMass(:, 1:nzm+1) = &
              100.*(interfaceP(:,1:nz) - interfaceP(:,2:nz+1))/ ggr
-        !
+             
+        ! Compute assumed cloud particle sizes if microphysics doesn't provide them 
+        if(compute_reffc) then
+          rad_reffc(1:nx,1:ny,1:nzm) = reffc(1:nx,1:ny,1:nzm)
+        else
+          rad_reffc(1:nx,1:ny,1:nzm) = &
+                          MERGE(computeRe_Liquid(REAL(tabs(1:nx,1:ny,1:nzm),KIND=kind_rb), land_frac), &
+                                0._kind_rb,                                         &
+                                qcl(1:nx,1:ny,1:nzm) > 0._kind_rb )
+        end if 
+        if(compute_reffi) then
+          rad_reffi(1:nx,1:ny,1:nzm) = reffi(1:nx,1:ny,1:nzm)
+        else
+          rad_reffi(1:nx,1:ny,1:nzm) = &
+                          MERGE(computeRe_Ice(REAL(tabs(1:nx,1:ny,1:nzm),KIND=kind_rb)), &
+                                0._kind_rb,                       &
+                                qci(1:nx,1:ny,1:nzm) > 0._kind_rb )
+        end if 
+        
+        ! option for drizzle/rain being radiatively active
+        if(compute_reffl.AND.dorrtm_cloud_optics_from_effrad_LegacyOption) then
+          do k = 1,nzm
+            do j = 1,ny
+              do i = 1,nx
+                if(qpl(i,j,k)+qcl(i,j,k).gt.0._kind_rb) then
+                  rad_reffc(i,j,k) = ( qcl(i,j,k) + qpl(i,j,k) ) &
+                       / (qcl(i,j,k)/reffc(i,j,k) + qpl(i,j,k)/reffr(i,j,k) )
+                end if
+              end do
+            end do
+          end do
+        end if
+
         ! The radiation code takes a 1D vector of columns, so we loop 
         !   over the y direction
         !
-        if(compute_reffc) then
-          rel_rad = Get_reffc()
-        end if
-        if(compute_reffi) then
-          rei_rad = Get_reffi()
-        end if
-
         do lat = 1, ny 
           lwHeatingRate(:, :) = 0.; swHeatingRate(:, :) = 0. 
 
@@ -276,42 +380,105 @@ contains
           LWP(:, 1:nzm) = qcl(:, lat, 1:nzm) * 1.e3 * layerMass(:, 1:nzm) 
           LWP(:, nzm+1) = 0. ! zero out extra layer
 
-          IWP(:, 1:nzm) = qci(:, lat, 1:nzm) * 1.e3 * layerMass(:, 1:nzm) 
-          IWP(:, nzm+1) = 0. ! zero out extra layer
-          
-          !bloss(072109): Previous implementation (using where/elsewhere)
-          !   had the undesirable effect of zeroing out cloudFrac
-          !   where LWP>0 but IWP==0.
-          cloudFrac(:, :) = 0.
-          liquidRe(:, :) = 0.
-          iceRe(:, :) = 0.
-
-          if(compute_reffc) then
-            where(LWP(:, 1:nzm) > 0.)
-              liquidRe(:,1:nzm) = max(2.5_kind_rb, min(60._kind_rb,rel_rad(:, lat, 1:nzm)))
-              cloudFrac(:, 1:nzm) = 1.
-            end where
-          else
-            where(LWP(:, 1:nzm) > 0.)
-              liquidRe(:, 1:nzm) = computeRe_Liquid(layerT(:,1:nzm), &
-                   merge(real(0.,kind_rb), real(1.,kind_rb), ocean))
-              rel_rad(:, lat, 1:nzm) = liquidRe(:, 1:nzm)
-              cloudFrac(:, 1:nzm) = 1.
-            end where
+          ! option for drizzle/rain being radiatively active
+          if(compute_reffl.AND.dorrtm_cloud_optics_from_effrad_LegacyOption) then
+            LWP(:, 1:nzm) = ( qcl(:, lat, 1:nzm) + qpl(:, lat, 1:nzm) )* 1.e3 * layerMass(:, 1:nzm) 
+            LWP(:, nzm+1) = 0. ! zero out extra layer
           end if
 
-          if(compute_reffi) then
-            where(IWP(:, 1:nzm) > 0.)
-              iceRe(:,1:nzm) = max(5._kind_rb, min(140._kind_rb,rei_rad(:, lat, 1:nzm)))
-              cloudFrac(:, 1:nzm) = 1. 
-            end where
+          IWP(:, 1:nzm) = qci(:, lat, 1:nzm) * 1.e3 * layerMass(:, 1:nzm) 
+          IWP(:, nzm+1) = 0. ! zero out extra layer
+          cloudFrac(:,:) = MERGE(1., 0., LWP(:,:)>0. .or. IWP(:,:)>0.)
+
+          if(have_cloud_optics) then
+            if(use_m2005_cloud_optics) then
+              call compute_m2005_cloud_optics(nx, nzm, lat, layerMass, cloudFrac, &
+                  cloudTauLW, cloudTauSW, cloudSsaSW, cloudAsmSW, cloudForSW, &
+                  cloudTauSW_cldliq, cloudTauSW_cldice, cloudTauSW_snow )
+            elseif(use_thompson_cloud_optics) then
+              call compute_thompson_cloud_optics(nx, nzm, lat, layerMass, cloudFrac, &
+                  cloudTauLW, cloudTauSW, cloudSsaSW, cloudAsmSW, cloudForSW, &
+                  cloudTauSW_cldliq, cloudTauSW_cldice, cloudTauSW_snow )
+            elseif(use_p3_cloud_optics) then
+              call compute_p3_cloud_optics(nx, nzm, lat, layerMass, cloudFrac, &
+                  cloudTauLW, cloudTauSW, cloudSsaSW, cloudAsmSW, cloudForSW, &
+                  cloudTauSW_cldliq, cloudTauSW_cldice, iceRe )
+              rad_reffi(1:nx, lat, 1:nzm) = iceRe(1:nx,1:nzm)
+            end if
+            !
+            ! Normally simulators are run only when the sun is up,
+            !    but in case someone decides to use nighttime values...
+            !
+            if(doisccp .or. domodis .or. domisr) then
+              ! band 9 is 625 - 778 nm, needed is 670 nm
+              tau_067 (1:nx,lat,1:nzm) = cloudTauSW(9,1:nx,1:nzm)
+              tau_067_cldliq (1:nx,lat,1:nzm) = cloudTauSW_cldliq(9,1:nx,1:nzm)
+              tau_067_cldice (1:nx,lat,1:nzm) = cloudTauSW_cldice(9,1:nx,1:nzm)
+              tau_067_snow (1:nx,lat,1:nzm) = cloudTauSW_snow(9,1:nx,1:nzm)
+              ! band 6 is 820 - 980 cm-1, we need 10.5 micron
+              emis_105(1:nx,lat,1:nzm) = 1. - exp(-cloudTauLW(6,1:nx,1:nzm))
+            end if
           else
-            where(IWP(:, 1:nzm) > 0.)
-              !bloss: limit within RRTMG bounds on valid effective radii
-              iceRe(:, 1:nzm) = MAX(5._kind_rb, MIN(140._kind_rb, computeRe_Ice(layerT(:,1:nzm)) ) ) 
-              rei_rad(:, lat, 1:nzm) = iceRe(:, 1:nzm)
-              cloudFrac(:, 1:nzm) = 1. 
-            end where
+            liqRe(:,1:nzm) =   rad_reffc(:, lat, 1:nzm)
+            iceRe(:,1:nzm) =   rad_reffi(:, lat, 1:nzm)
+            !
+            ! Limit particle sizes to range allowed by RRTMG parameterizations, add top layer
+            !
+            where(LWP(:,1:nzm) > 0.) & 
+              liqRe(:,1:nzm) = max(2.5_kind_rb, min( 60._kind_rb,liqRe(:,1:nzm)))
+            where(IWP(:,1:nzm) > 0.) & 
+                 iceRe(:,1:nzm) = max(5.0_kind_rb, min(140._kind_rb,iceRe(:,1:nzm)))
+                 
+            liqRe(:,nzm+1) = 0._kind_rb
+            iceRe(:,nzm+1) = 0._kind_rb
+            
+            if(doisccp .or. domodis .or. domisr) then 
+              !
+              ! Compute cloud optical depths directly so we can provide to instrument simulators
+              !   Ice particle size should be "generalized effective size" from Fu et al. 1998
+              !   doi:10.1175/1520-0442(1998)011<2223:AAPOTI>2.0.CO;2
+              !   This would normally require some conversion, I guess
+              !
+              prpLWIn = 0.; prpSWIn = 0. 
+              do i = 1, nx
+                call cldprop   (nzm+1, 2, 3, 1, cloudFrac(i,:), prpLWIn, &
+                                IWP(i,:), LWP(i,:), iceRe(i,:), liqRe(i,:), ncbands, tauLWOut)
+                ! Last three output arguments from cldprop_sw are *delta-scaled* optical properties - 
+                !   RRTM needs unscaled variables, so we need to provide physical quantities to RRTMG,
+                ! which will call cldprop_sw again
+                call cldprop_sw(nzm+1, 2, 3, 1, cloudFrac(i,:), &
+                                prpSWIn, prpSWIn, prpSWIn, prpSWIn, IWP(i,:), LWP(i,:), iceRe(i,:), liqRe(i,:), &
+                                tauSWOut, scaled1, scaled2, scaled3)
+                tau_067 (i,lat,1:nzm) =           tauSWOut(1:nzm,24) ! RRTMG SW bands run from 16 to 29 (parrrsw.f90); we want 9th of these
+                                                                     ! band 9 is 625 - 778 nm, needed is 670 nm
+                emis_105(i,lat,1:nzm) = 1. - exp(-tauLWOut(1:nzm,6)) ! band 6 is 820 - 980 cm-1, we need 10.5 micron 
+              end do
+            end if
+
+            if(domodis) then 
+              !
+              ! Compute separate cloud optical depths for liquid and ice clouds for input to 
+              !   MODIS simulator, which wants these things separately.
+              !
+              cloudFrac_liq(:,:) = MERGE(1., 0., LWP(:,:)>0.)
+              cloudFrac_ice(:,:) = MERGE(1., 0., IWP(:,:)>0.)
+              prpLWIn = 0.; prpSWIn = 0.; dummyRe = 0.; dummyWP = 0.
+              do i = 1, nx
+                ! See above comment.  We want unscaled optical depth from cloud liquid at 670nm
+                call cldprop_sw(nzm+1, 2, 3, 1, cloudFrac_liq(i,:), &
+                                prpSWIn, prpSWIn, prpSWIn, prpSWIn, dummyWP(i,:), LWP(i,:), dummyRe(i,:), liqRe(i,:), &
+                                tauSWOut, scaled1, scaled2, scaled3)
+                tau_067_cldliq (i,lat,1:nzm) = tauSWOut(1:nzm,24) ! RRTMG SW band number 9 (625 - 778 nm), needed is 670 nm
+
+                ! Same for cloud ice
+                call cldprop_sw(nzm+1, 2, 3, 1, cloudFrac_ice(i,:), &
+                                prpSWIn, prpSWIn, prpSWIn, prpSWIn, IWP(i,:), dummyWP(i,:), iceRe(i,:), dummyRe(i,:), &
+                                tauSWOut, scaled1, scaled2, scaled3)
+                tau_067_cldice (i,lat,1:nzm) = tauSWOut(1:nzm,24) ! RRTMG SW band number 9 (625 - 778 nm), needed is 670 nm
+
+                tau_067_snow (i,lat,1:nzm) = 0.! snow is not radiatively active here.
+              end do
+            end if
           end if
           ! ---------------------------------------------------
           
@@ -319,17 +486,8 @@ contains
           ! Volume mixing fractions for gases.
           !bloss(072009): Note that o3, etc. are now in ppmv and don't need conversions.
           !
-          h2ovmr(:, 1:nzm)   = mwdry/mwh2o * qv(:, lat, 1:nzm) 
-          h2ovmr(:, nzm+1)   = h2ovmr(:, nzm) ! extrapolate above model top
-          o3vmr(:, 1:nzm+1)    = spread(o3(:), dim = 1, ncopies = nx) 
-          co2vmr(:, 1:nzm+1)   = spread(co2(:), dim = 1, ncopies = nx) 
-          ch4vmr(:, 1:nzm+1)   = spread(ch4(:), dim = 1, ncopies = nx) 
-          n2ovmr(:, 1:nzm+1)   = spread(n2o(:), dim = 1, ncopies = nx) 
-          o2vmr(:, 1:nzm+1)    = spread(o2(:), dim = 1, ncopies = nx) 
-          cfc11vmr(:, 1:nzm+1) = spread(cfc11(:), dim = 1, ncopies = nx) 
-          cfc12vmr(:, 1:nzm+1) = spread(cfc12(:), dim = 1, ncopies = nx) 
-          cfc22vmr(:, 1:nzm+1) = spread(cfc22(:), dim = 1, ncopies = nx) 
-          ccl4vmr(:, 1:nzm+1)  = spread(ccl4(:), dim = 1, ncopies = nx) 
+          h2ovmr(1:nx, 1:nzm)   = mwdry/mwh2o * qv(1:nx, lat, 1:nzm) 
+          h2ovmr(1:nx, nzm+1)   = h2ovmr(1:nx, nzm) ! extrapolate above model top
 
           ! ---------------------------------------------------------------------------------
           if (dolongwave) then
@@ -340,15 +498,27 @@ contains
             duflxc_dt(:,:) = 0.
 
             call t_startf ('radiation-lw')
-            call rrtmg_lw (nx, nzm+1, overlap, idrv,            & 
-              layerP, interfaceP, layerT, interfaceT, surfaceT, &
-              h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr, &
-              cfc11vmr, cfc12vmr, cfc22vmr, ccl4vmr, surfaceEmissivity,  &
-              2, 3, 1, cloudFrac, &
-              dummyCloudPropsLW, IWP, LWP, iceRe, liquidRe, &
-              dummyTauAerosolLW, &
-              lwUp,lwDown, lwHeatingRate, lwUpClearSky, lwDownClearSky, lwHeatingRateClearSky, &
-              duflx_dt, duflxc_dt)
+            if(have_cloud_optics) then
+              call rrtmg_lw (nx, nzm+1, overlap, idrv,            &
+                layerP, interfaceP, layerT, interfaceT, surfaceT, &
+                h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr, &
+                cfc11vmr, cfc12vmr, cfc22vmr, ccl4vmr, surfaceEmissivity,  &
+                0, 0, 0, cloudFrac, &
+                CloudTauLW, IWP, LWP, iceRe, liqRe, &
+                dummyTauAerosolLW, &
+                lwUp,lwDown, lwHeatingRate, lwUpClearSky, lwDownClearSky, lwHeatingRateClearSky, &
+                duflx_dt, duflxc_dt)
+            else
+              call rrtmg_lw (nx, nzm+1, overlap, idrv,            & 
+                layerP, interfaceP, layerT, interfaceT, surfaceT, &
+                h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr, &
+                cfc11vmr, cfc12vmr, cfc22vmr, ccl4vmr, surfaceEmissivity,  &
+                2, 3, 1, cloudFrac, &
+                CloudTauLW, IWP, LWP, iceRe, liqRe, &
+                dummyTauAerosolLW, &
+                lwUp,lwDown, lwHeatingRate, lwUpClearSky, lwDownClearSky, lwHeatingRateClearSky, &
+                duflx_dt, duflxc_dt)
+            end if 
             
             !bloss: Recompute heating rate using layer density.
             !       This will provide better energy conservation since other
@@ -369,6 +539,12 @@ contains
             radqrlw(1:nzm) = radqrlw(1:nzm) + sum(lwHeatingRate(:, 1:nzm), dim = 1)
             radqrclw(1:nzm) = radqrclw(1:nzm) + sum(lwHeatingRateClearSky(:, 1:nzm), dim = 1)
             qrad(:, lat, :) = lwHeatingRate(:, 1:nzm)
+
+            if(do_chunked_energy_budgets) then
+              qrad_lw(:, lat, :) = lwHeatingRate(:, 1:nzm)
+              qradclr_lw(:, lat, :) = lwHeatingRateClearSky(:, 1:nzm)
+            end if
+
             !
             ! 2D diagnostic fields
             !
@@ -441,17 +617,29 @@ contains
               end if
 
               call t_startf ('radiation-sw')
-              call rrtmg_sw(nx, nzm+1, overlap,                     & 
-                layerP, interfaceP, layerT, interfaceT, surfaceT, &
-                h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr,     &
-                asdir, asdif, aldir, aldif, &
-                solarZenithAngleCos, eccf, 0, scon,   &
-                2, 3, 1, cloudFrac, &
-                dummyTauCloudSW, dummyCloudPropsSW, dummyCloudPropsSW, dummyCloudPropsSW, &
-                IWP, LWP, iceRe, liquidRe,  &
-                dummyAerosolProps, dummyAerosolProps, dummyAerosolProps, dummyAerosolProps2, &
-                swUp, swDown, swHeatingRate, swUpClearSky, swDownClearSky, swHeatingRateClearSky)
-
+              if(have_cloud_optics) then
+                call rrtmg_sw(nx, nzm+1, overlap,                     &
+                  layerP, interfaceP, layerT, interfaceT, surfaceT, &
+                  h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr,     &
+                  asdir, asdif, aldir, aldif, &
+                  solarZenithAngleCos, eccf, 0, scon,   &
+                  0, 0, 0, cloudFrac, &
+                  cloudTauSW, cloudSsaSW, cloudAsmSW, cloudForSW, &
+                  IWP, LWP, iceRe, liqRe,  &
+                  dummyAerosolProps, dummyAerosolProps, dummyAerosolProps, dummyAerosolProps2, &
+                  swUp, swDown, swHeatingRate, swUpClearSky, swDownClearSky, swHeatingRateClearSky)
+              else 
+                call rrtmg_sw(nx, nzm+1, overlap,                     & 
+                  layerP, interfaceP, layerT, interfaceT, surfaceT, &
+                  h2ovmr, o3vmr, co2vmr, ch4vmr, n2ovmr, o2vmr,     &
+                  asdir, asdif, aldir, aldif, &
+                  solarZenithAngleCos, eccf, 0, scon,   &
+                  2, 3, 1, cloudFrac, &
+                  cloudTauSW, cloudSsaSW, cloudAsmSW, cloudForSW, &
+                  IWP, LWP, iceRe, liqRe,  &
+                  dummyAerosolProps, dummyAerosolProps, dummyAerosolProps, dummyAerosolProps2, &
+                  swUp, swDown, swHeatingRate, swUpClearSky, swDownClearSky, swHeatingRateClearSky)
+              end if 
               !bloss: Recompute heating rate using layer density.
               !       This will provide better energy conservation since other
               !       flux difference terms in energy budget are computed this way.
@@ -472,6 +660,12 @@ contains
               radqrsw(:nzm) = radqrsw(:nzm) + sum(swHeatingRate(:, 1:nzm), dim = 1)
               radqrcsw(:nzm) = radqrcsw(:nzm) + sum(swHeatingRateClearSky(:, 1:nzm), dim = 1)
               qrad(:, lat, :) = qrad(:, lat, :) + swHeatingRate(:, 1:nzm)
+
+              if(do_chunked_energy_budgets) then
+                qrad_sw(:, lat, :) = swHeatingRate(:, 1:nzm)
+                qradclr_sw(:, lat, :) = swHeatingRateClearSky(:, 1:nzm)
+              end if
+
               !
               ! 2D diagnostic fields
               !
@@ -485,6 +679,20 @@ contains
               swUpTom              (:, lat) = swUp(:, nz)
               swUpToaClearSky      (:, lat) = swUpClearSky(:, nz+1) 
               insolation_TOA       (:, lat) = swDown(:, nz+1)
+            else
+              !
+              ! 2D diagnostic fields - nighttime values
+              !
+              swDownSurface        (:, lat) = 0.0
+              swDownSurfaceClearSky(:, lat) = 0.0
+              swUpSurface          (:, lat) = 0.0
+              swUpSurfaceClearSky  (:, lat) = 0.0
+              swDownToa            (:, lat) = 0.0
+              swDownTom            (:, lat) = 0.0
+              swUpToa              (:, lat) = 0.0
+              swUpTom              (:, lat) = 0.0
+              swUpToaClearSky      (:, lat) = 0.0
+              insolation_TOA       (:, lat) = 0.0
             end if 
           end if 
           ! ---------------------------------------------------------------------------------
@@ -538,7 +746,17 @@ contains
       ! First two for ocean evolution
       lwnsxy(:, :) = lwUpSurface(:, :) - lwDownSurface(:, :)  ! Net LW upwards
       swnsxy(:, :) = swDownSurface(:, :) - swUpSurface(:, :)  ! Net SW downwards
+
+      lwnscxy(:, :) = lwUpSurfaceClearSky(:, :) - lwDownSurfaceClearSky(:, :)  ! Net LW upwards
+      swnscxy(:, :) = swDownSurfaceClearSky(:, :) - swUpSurfaceClearSky(:, :)  ! Net SW downwards
+
+      lwntxy(:, :) = lwUpToa(:, :) ! Net LW upwards
+      swntxy(:, :) = swDownToa(:, :) - swUpToa(:, :)  ! Net SW downwards
+
+      lwntcxy(:, :) = lwUpToaClearSky(:, :)  ! Net LW upwards
+      swntcxy(:, :) = swDownToa(:, :) - swUpToaClearSky(:, :)  ! Net SW downwards
       
+      ! These fluxes can be accumulated in time if save2Davg == .true.
       lwns_xy(:, :) = lwns_xy(:, :) + &
                           lwUpSurface(:, :) - lwDownSurface(:, :)  ! Net LW upwards
       swns_xy(:, :) = swns_xy(:, :) + &
@@ -602,17 +820,23 @@ contains
   end subroutine rad_driver
   ! ----------------------------------------------------------------------------
   subroutine initialize_radiation
-    use vars, only: latitude, longitude, &
-                    radlwup, radlwdn, radswup, radswdn, radqrlw, radqrsw
-    use grid, only: nrestart, day0
-    use params, only: cp, doperpetual
-    use parkind, only: kind_rb
-    use rrtmg_sw_init, only: rrtmg_sw_ini
-    use rrtmg_lw_init, only: rrtmg_lw_ini
-    
+
     implicit none
 
     real(KIND=kind_rb) :: cpdair
+    integer :: ierr
+
+    if(do_chunked_energy_budgets.AND.(.NOT.isAllocatedIndividualQrad)) then
+      ! allocate individual arrays with lw/sw, full sky/clear sky heating rates
+      !  these will be averaged horizontally into chunks and output in mse.f90.
+      allocate(qrad_lw(nx,ny,nzm), qradclr_lw(nx,ny,nzm), qrad_sw(nx,ny,nzm), qradclr_sw(nx,ny,nzm), STAT=ierr)
+      if(ierr.ne.0) then
+        write(*,*) 'Cannot allocate individual qrad arrays in initialize_radiation'
+        call task_abort()
+      end if
+      isAllocatedIndividualQrad = .true.
+    end if
+
 
     !bloss  subroutine shr_orb_params
     !bloss  inputs:  iyear, log_print
@@ -647,7 +871,31 @@ contains
     call rrtmg_sw_ini(cpdair)
     call rrtmg_lw_ini(cpdair)
     
-    initialized = .true. 
+    if(trim(micro_scheme_name()) == 'm2005' .and. & 
+       (compute_reffc .or. compute_reffi) .and. &
+       (.NOT.dorrtm_cloud_optics_from_effrad_LegacyOption)) then
+       call m2005_cloud_optics_init
+       use_m2005_cloud_optics = .true.
+       have_cloud_optics = .true.
+    end if
+
+    if(trim(micro_scheme_name()) == 'thompson' .and. &
+       (compute_reffc .or. compute_reffi) .and. &
+       (.NOT.dorrtm_cloud_optics_from_effrad_LegacyOption)) then
+       call thompson_cloud_optics_init
+       use_thompson_cloud_optics = .true.
+       have_cloud_optics = .true.
+    end if
+
+    if( (trim(micro_scheme_name()) == 'p3multi') .and. & 
+       (.NOT.dorrtm_cloud_optics_from_effrad_LegacyOption) ) then
+       call p3_cloud_optics_init
+       use_p3_cloud_optics = .true.
+       have_cloud_optics = .true.
+    end if
+
+    land_frac = MERGE(0., 1., ocean)
+    initialized = .true.
   end subroutine initialize_radiation
   ! ----------------------------------------------------------------------------
   !
@@ -655,12 +903,8 @@ contains
   !
   ! ----------------------------------------------------------------------------
   subroutine tracesini()
-    use grid, only : z, masterproc, case, presi, pres
-    use params, only: ggr, nxco2, notracegases
-    use parkind, only: kind_rb, kind_im
-    use rrlw_ncpar
     use netcdf
-    use grid, only: rundatadir
+
     implicit none
     !
     ! Initialize trace gaz vertical profiles
@@ -706,6 +950,9 @@ contains
     !       This routine was originally written for CCM/CAM radiation
     !       which orders levels from top down.  As a result, we need to
     !       reverse the ordering here to make things work for RRTMG.
+
+!DD add code to read from master only and bcast trace profiles
+  if(masterproc) then
 
     ! Read profiles from rrtmg data file.
     status(:)   = nf90_NoErr
@@ -838,7 +1085,6 @@ contains
     
     end do
 
-    if(masterproc) then
       print*,'RRTMG rrtmg_lw.nc trace gas profile: number of levels=',nPress
       print*,'gas traces vertical profiles (ppmv):'
       print*,' p (hPa) ', ('       ',TraceGasNameOrder(m),m=1,nTraceGases)
@@ -848,10 +1094,21 @@ contains
 999     format(f8.2,12e12.4)
       end do
       print*,'done...'
-    endif
 
     deallocate(pMLS, trace, STAT=ierr)
+    endif
     
+    if(dompi) then
+      call task_bcast_real8(0,o3,nzm+1)
+      call task_bcast_real8(0,co2,nzm+1)
+      call task_bcast_real8(0,ch4,nzm+1)
+      call task_bcast_real8(0,n2o,nzm+1)
+      call task_bcast_real8(0,o2,nzm+1)
+      call task_bcast_real8(0,cfc11,nzm+1)
+      call task_bcast_real8(0,cfc12,nzm+1)
+      call task_bcast_real8(0,cfc22,nzm+1)
+      call task_bcast_real8(0,ccl4,nzm+1)
+    end if
 
   end subroutine tracesini
   ! ----------------------------------------------------------------------------
@@ -860,8 +1117,6 @@ contains
   ! 
   ! ----------------------------------------------------------------------------
   elemental real(kind_rb) function zenith(calday, clat, clon)
-     use parkind, only: kind_rb
-     use shr_orb_mod, only : shr_orb_decl, shr_orb_cosz
      implicit none
      real(kind_rb), intent(in ) :: calday, & ! Calendar day, including fraction
                                    clat,   & ! Current centered latitude (radians)
@@ -879,9 +1134,6 @@ contains
   end function zenith
   ! ----------------------------------------------------------------------------
   elemental real(kind_rb) function perpetual_factor(day, lat, lon)
-    use parkind, only: kind_rb
-    use grid, ONLY: dt, nrad
-    use shr_orb_mod, only : shr_orb_decl
     implicit none
     real(kind_rb), intent(in) :: day, lat, lon ! Day (without fraction); centered lat/lon (degrees) 
     real(kind_rb)     :: delta, & ! Solar declination angle in radians
@@ -921,10 +1173,8 @@ contains
   !
   ! ----------------------------------------------------------------------------
   subroutine write_rad()
-    use grid, only : restart_sep, rank, nstep, masterproc, nsubdomains, case, caseid
-    use vars, only: radqrlw, radqrsw, radlwup, radlwdn, radswup, radswdn
-    implicit none    
     integer :: irank, ii
+    character(LEN=256) :: filename, filename_save
 
     !bloss: added a bunch of statistics-related stuff to the restart file
     !         to nicely handle the rare case when nrad exceeds nstat and 
@@ -935,8 +1185,17 @@ contains
     if(masterproc) print*,'Writting radiation restart file...'
 
     if(restart_sep) then
-      open(56, file = trim(constructRestartFileName(case, caseId, rank)), &
-           status='unknown',form='unformatted')
+      filename = TRIM(constructRestartFileName(case, caseId, rank, 'bin'))
+      filename_save = TRIM(constructRestartFileName(case, caseId, rank, 'old'))
+
+      ! first remove old restart file (if it exists)
+      call system('rm -f ' // TRIM(filename_save) )
+
+      ! next, move last restart file to *.old
+      call system('mv '//TRIM(filename)//' '//TRIM(filename_save) )
+
+      ! now, open a new restart file
+      open(56, file = trim(filename), status='unknown',form='unformatted')
       write(56) nsubdomains
 	  write(56) nradsteps, qrad, radlwup, radlwdn, radswup, radswdn, &
         radqrlw, radqrsw, radqrclw, radqrcsw, &
@@ -948,10 +1207,22 @@ contains
           o3, co2, ch4, n2o, o2, cfc11, cfc12, cfc22, ccl4
       close(56)
     else
+
+      if(masterproc) then
+        filename = TRIM(constructRestartFileName(case, caseId, nSubdomains, 'bin'))
+        filename_save = TRIM(constructRestartFileName(case, caseId, nSubdomains, 'old'))
+
+        ! first remove old restart file (if it exists)
+        call system('rm -f ' // TRIM(filename_save) )
+
+        ! next, move last restart file to *.old
+        call system('mv '//TRIM(filename)//' '//TRIM(filename_save) )
+      end if
+
       do irank = 0, nsubdomains-1
         call task_barrier()
         if(irank == rank) then
-          open(56, file = trim(constructRestartFileName(case, caseId, nSubdomains)), &
+          open(56, file = trim(constructRestartFileName(case, caseId, nSubdomains,'bin')), &
                status='unknown',form='unformatted')
           if(masterproc) then
             write(56) nsubdomains
@@ -980,10 +1251,6 @@ contains
   end subroutine write_rad
   ! ----------------------------------------------------------------------------
   subroutine read_rad()
-    use grid, only : dt, nrestart, restart_sep, rank, nstep, masterproc, nsubdomains, &
-                     case, caseid, case_restart, caseid_restart
-    use vars, only: radqrlw, radqrsw, radlwup, radlwdn, radswup, radswdn
-    implicit none
     integer ::  irank, ii
 
     if(masterproc) print*,'Reading radiation restart file...'
@@ -991,10 +1258,10 @@ contains
     if(restart_sep) then
     
       if(nrestart.ne.2) then
-        open(56, file = trim(constructRestartFileName(case, caseid, rank)), &
+        open(56, file = trim(constructRestartFileName(case, caseid, rank, 'bin')), &
              status='unknown',form='unformatted')
       else
-        open(56, file = trim(constructRestartFileName(case_restart, caseid_restart, rank)), &
+        open(56, file = trim(constructRestartFileName(case_restart, caseid_restart, rank, 'bin')), &
              status='unknown',form='unformatted')
       end if
       read (56)
@@ -1014,10 +1281,10 @@ contains
         call task_barrier()
         if(irank == rank) then
           if(nrestart.ne.2) then
-            open(56, file = trim(constructRestartFileName(case, caseId, nSubdomains)), &
+            open(56, file = trim(constructRestartFileName(case, caseId, nSubdomains, 'bin')), &
                  status='unknown',form='unformatted')
           else
-            open(56, file = trim(constructRestartFileName(case, caseId_restart, nSubdomains)), &
+            open(56, file = trim(constructRestartFileName(case_restart, caseId_restart, nSubdomains, 'bin')), &
                  status='unknown',form='unformatted')
           end if
           read (56)
@@ -1048,8 +1315,8 @@ contains
   end subroutine read_rad      
   
   ! ----------------------------------------------------------------------------
-  function constructRestartFileName(case, caseid, index) result(name) 
-    character(len = *), intent(in) :: case, caseid
+  function constructRestartFileName(case, caseid, index, suffix) result(name) 
+    character(len = *), intent(in) :: case, caseid, suffix
     integer,            intent(in) :: index
     character(len=256) :: name
     
@@ -1060,7 +1327,8 @@ contains
     write(indexChar,'(i4)') index
 
     name = './RESTART/' // trim(case) //'_'// trim(caseid) //'_'// &
-              indexChar(5-lenstr(indexChar):4) //'_restart_rad.bin'
+              indexChar(5-lenstr(indexChar):4) //'_restart_rad.'// &
+              TRIM(suffix)
 !bloss              trim(indexChar) //'_restart_rad.bin'
 
   end function constructRestartFileName

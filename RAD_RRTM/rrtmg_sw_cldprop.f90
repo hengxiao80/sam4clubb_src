@@ -119,6 +119,12 @@
       ib2 = jpb2
       tauctot(:) = 0._rb
 
+      !bloss: added initialization for these, all intent(out)
+      taucldorig(:,:) = 0.0_rb
+      taucloud(:,:) = 0.0_rb
+      ssacloud(:,:) = 0.0_rb
+      asmcloud(:,:) = 0.0_rb
+
       do lay = 1, nlayers
          do ib = ib1 , ib2
             taucldorig(lay,ib) = tauc(ib-15,lay)
@@ -342,6 +348,8 @@
 
 ! End layer loop
       enddo
+
+!bloss      write(*,*) 'Max TauSW Cloud = ', MAXVAL(SUM(taucldorig,DIM=2))
 
       end subroutine cldprop_sw
 

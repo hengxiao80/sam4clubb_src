@@ -139,6 +139,7 @@ logical:: donudging_uv = .false.
 logical:: donudging_tq = .false.
 logical:: donudging_t = .false. 
 logical:: donudging_q = .false.
+logical:: donudging_aerosol = .false.
 logical:: doensemble = .false. 
 logical:: dowallx = .false. 
 logical:: dowally = .false. 
@@ -173,6 +174,9 @@ integer:: perturb_type  = 0 ! type of initial noise in setperturb()
   real:: bubble_radius_ver = 0.
   real:: bubble_dtemp = 0.
   real:: bubble_dq = 0.
+
+! Option for simple treatment of aerosol radiative effect in RRTMG by Tak Yamaguchi
+logical:: doradaerosimple = .false. 
 
 
 end module params

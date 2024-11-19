@@ -68,7 +68,6 @@ do k=1,nzm
        ctat*(rdx*(dudt(ic,j,k,nc)-dudt(i,j,k,nc))+ &
              rdy*(dvdt(i,jc,k,nc)-dvdt(i,j,k,nc))+ &
              (dwdt(i,j,kc,nc)*rup-dwdt(i,j,k,nc)*rdn) )
-   p(i,j,k)=p(i,j,k)*rho(k)
   end do
  end do
 end do
@@ -93,7 +92,6 @@ do k=1,nzm
                  (dwdt(i,j,kc,nb)*rup-dwdt(i,j,k,nb)*rdn) ) + &
            ctat*(rdx*(dudt(ic,j,k,nc)-dudt(i,j,k,nc))+ &
                  (dwdt(i,j,kc,nc)*rup-dwdt(i,j,k,nc)*rdn) )
-  p(i,j,k)=p(i,j,k)*rho(k)
  end do
 end do
 

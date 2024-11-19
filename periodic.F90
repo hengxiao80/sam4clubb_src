@@ -44,15 +44,10 @@ if(flag.eq.2) then
                                                            3+NADVS,3+NADVS,3+NADVS,3+NADVS,4+i)
  end do
  do i = 1,nmicro_fields
-    if(   i.eq.index_water_vapor             &
-#ifdef CLUBB
- ! Vince Larson (UWM) changed so that bound_exchange is called even if
- !     docloud = .false. and doclubb = .true.    11 Nov 2007
-     .or. (docloud.or.doclubb.or.doclubbnoninter) .and.flag_precip(i).ne.1    &
-#else
-     .or. docloud.and.flag_precip(i).ne.1    &
-#endif
-     .or. doprecip.and.flag_precip(i).eq.1 ) &
+!!$    if(   i.eq.index_water_vapor             &
+!!$     .or. docloud.and.flag_precip(i).ne.1    &
+!!$     .or. doprecip.and.flag_precip(i).eq.1 ) &
+   if(flag_advect(i).eq.1) &
      call bound_exchange(micro_field(:,:,:,i),dimx1_s,dimx2_s,dimy1_s,dimy2_s,nzm, &
                                 3+NADVS,3+NADVS,3+NADVS,3+NADVS,4+nsgs_fields+nsgs_fields_diag+i)
  end do
@@ -78,15 +73,10 @@ if(flag.eq.3) then
      call bound_exchange(sgs_field(:,:,:,i),dimx1_s,dimx2_s,dimy1_s,dimy2_s,nzm,1,1,1,1,4+i)
  end do
  do i = 1,nmicro_fields
-    if(   i.eq.index_water_vapor             &
-#ifdef CLUBB     
- ! Vince Larson (UWM) changed so that bound_exchange is called even if
- !     docloud = .false. and doclubb = .true.    11 Nov 2007
-     .or. (docloud.or.doclubb.or.doclubbnoninter) .and.flag_precip(i).ne.1    &
-#else
-     .or. docloud.and.flag_precip(i).ne.1    &
-#endif
-     .or. doprecip.and.flag_precip(i).eq.1 ) &
+!!$    if(   i.eq.index_water_vapor             &
+!!$     .or. docloud.and.flag_precip(i).ne.1    &
+!!$     .or. doprecip.and.flag_precip(i).eq.1 ) &
+   if(flag_advect(i).eq.1) &
      call bound_exchange(micro_field(:,:,:,i),dimx1_s,dimx2_s,dimy1_s,dimy2_s,nzm, &
                                                              1,1,1,1,4+nsgs_fields+nsgs_fields_diag+i)
  end do

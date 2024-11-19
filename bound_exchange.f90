@@ -11,7 +11,7 @@ integer i_1, i_2, j_1, j_2
 real f(dimx1:dimx2, dimy1:dimy2, dimz)
 integer id   ! id of the sent field (dummy variable)
 	
-real buffer((nx+ny)*3*nz)	! buffer for sending data
+real buffer((nx+ny)*(3+NADVS)*nz)	! buffer for sending data
 	
 integer i, j, k, n
 integer i1, i2, j1, j2

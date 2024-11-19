@@ -154,6 +154,9 @@
       ncbands = 1
       tauctot(:) = 0._rb
 
+      !bloss: added initialization for this intent(out) variable
+      taucloud(:,:) = 0._rb
+
       do lay = 1, nlayers
          do ib = 1, nbndlw
             taucloud(lay,ib) = 0.0_rb
@@ -272,6 +275,8 @@
             endif
          endif
       enddo
+
+!bloss      write(*,*) 'Max TauLW Cloud = ', MAXVAL(SUM(taucloud,DIM=2))
 
       end subroutine cldprop
 

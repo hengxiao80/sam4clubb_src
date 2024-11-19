@@ -1,5 +1,5 @@
 
-subroutine advect_scalar (f,fadv,flux,f2leadv,f2legrad,fwleadv,doit)
+subroutine advect_scalar (f,fadv,flux,f2leadv,f2legrad,fwleadv,do_poslimit,doit)
  	
 !     positively definite monotonic advection with non-oscillatory option
 
@@ -12,6 +12,7 @@ implicit none
 real f(dimx1_s:dimx2_s, dimy1_s:dimy2_s, nzm)
 real flux(nz), fadv(nz)
 real f2leadv(nzm),f2legrad(nzm),fwleadv(nzm)
+logical do_poslimit !bloss: added for compatibility with SELPPM
 logical doit
 
 real df(dimx1_s:dimx2_s, dimy1_s:dimy2_s, nzm)

@@ -199,18 +199,18 @@ contains
 	
 	!--------------------------------------------------------------------------------------------------
 	
-	subroutine face_x_5th( x1, x2, y1, y2 )
+	subroutine face_x_5th( x1, x2, y1, y2, z1, z2 )
 	
 		use grid
 		implicit none
 		
 		! input
-		integer, intent(in) :: x1, x2, y1, y2
+		integer, intent(in) :: x1, x2, y1, y2, z1, z2
 		
 		! local
 		integer :: i, j, k
 		
-		do k = 1, nzm
+		do k = z1, z2
 			do j = y1, y2
 				do i = x1, x2
 					fx(i,j,k) = face_5th( fadv(i-3,j,k), fadv(i-2,j,k), fadv(i-1,j,k), fadv(i,j,k), &
@@ -223,18 +223,18 @@ contains
 	
 	!--------------------------------------------------------------------------------------------------
 	
-	subroutine face_y_5th( x1, x2, y1, y2 )
+	subroutine face_y_5th( x1, x2, y1, y2, z1, z2 )
 	
 		use grid
 		implicit none
 		
 		! input
-		integer, intent(in) :: x1, x2, y1, y2
+		integer, intent(in) :: x1, x2, y1, y2, z1, z2
 		
 		! local
 		integer :: i, j, k
 		
-		do k = 1, nzm
+		do k = z1, z2
 			do j = y1, y2
 				do i = x1, x2
 					fy(i,j,k) = face_5th( fadv(i,j-3,k), fadv(i,j-2,k), fadv(i,j-1,k), fadv(i,j,k), &
@@ -247,27 +247,27 @@ contains
 	
 	!--------------------------------------------------------------------------------------------------
 	
-	subroutine face_z_5th( x1, x2, y1, y2 )
+	subroutine face_z_5th( x1, x2, y1, y2, z1, z2 )
 	
 		use grid
 		implicit none
 		
 		! input
-		integer, intent(in) :: x1, x2, y1, y2
+		integer, intent(in) :: x1, x2, y1, y2, z1, z2
 		
 		! local
 		integer :: i, j, k
 		
+                if(z1.lt.4) then
 		do j = y1, y2
 			do i = x1, x2
 				fz(i,j,2) = face_2nd_z( fadv(i,j,1), fadv(i,j,2), cw(i,j,2), 2 )
 				fz(i,j,3) = face_3rd_z( fadv(i,j,1), fadv(i,j,2), fadv(i,j,3), fadv(i,j,4), cw(i,j,3),3)
-				fz(i,j,nzm-1) = face_3rd_z( fadv(i,j,nzm-3), fadv(i,j,nzm-2), fadv(i,j,nzm-1), &
-				                          fadv(i,j,nzm), cw(i,j,nzm-1), nzm-1 )
-				fz(i,j,nzm) = face_2nd_z( fadv(i,j,nzm-1), fadv(i,j,nzm), cw(i,j,nzm), nzm )
 			enddo
 		enddo
-		do k = 4, nzm-2
+                end if
+
+		do k = MAX(z1,4), MIN(z2,nzm-2)
 			do j = y1, y2
 				do i = x1, x2
 					fz(i,j,k) = face_5th_z( fadv(i,j,k-3), fadv(i,j,k-2), fadv(i,j,k-1), fadv(i,j,k), &
@@ -276,22 +276,32 @@ contains
 			enddo
 		enddo
 	
+                if(z2.gt.nzm-2) then
+                  do j = y1, y2
+                    do i = x1, x2
+                      fz(i,j,nzm-1) = face_3rd_z( fadv(i,j,nzm-3), fadv(i,j,nzm-2), fadv(i,j,nzm-1), &
+                           fadv(i,j,nzm), cw(i,j,nzm-1), nzm-1 )
+                      fz(i,j,nzm) = face_2nd_z( fadv(i,j,nzm-1), fadv(i,j,nzm), cw(i,j,nzm), nzm )
+                    enddo
+                  enddo
+                end if
+
 	end subroutine face_z_5th
 	
 	!--------------------------------------------------------------------------------------------------
 	
-	subroutine adv_form_update_x( x1, x2, y1, y2 )
+	subroutine adv_form_update_x( x1, x2, y1, y2, z1, z2 )
 	
 		use grid
 		implicit none
 		
 		! input
-		integer, intent(in) :: x1, x2, y1, y2
+		integer, intent(in) :: x1, x2, y1, y2, z1, z2
 		
 		! local
 		integer :: i, j, k
 		
-		do k = 1, nzm
+		do k = z1, z2
 			do j = y1, y2
 				do i = x1, x2
 					fadv(i,j,k) = fadv(i,j,k) &
@@ -304,18 +314,18 @@ contains
 	
 	!--------------------------------------------------------------------------------------------------
 	
-	subroutine adv_form_update_y( x1, x2, y1, y2 )
+	subroutine adv_form_update_y( x1, x2, y1, y2, z1, z2 )
 	
 		use grid
 		implicit none
 		
 		!	input
-		integer, intent(in) :: x1, x2, y1, y2
+		integer, intent(in) :: x1, x2, y1, y2, z1, z2
 			
 		!	local
 		integer :: i, j, k
 		
-		do k = 1, nzm
+		do k = z1, z2
 			do j = y1, y2
 				do i = x1, x2
 					fadv(i,j,k) = fadv(i,j,k) &
@@ -328,18 +338,18 @@ contains
 	
 	!--------------------------------------------------------------------------------------------------
 	
-	subroutine adv_form_update_z( x1, x2, y1, y2 )
+	subroutine adv_form_update_z( x1, x2, y1, y2, z1, z2 )
 	
 		use grid
 		implicit none
 		
 		! input
-		integer, intent(in) :: x1, x2, y1, y2
+		integer, intent(in) :: x1, x2, y1, y2, z1, z2
 		
 		! local
 		integer :: i, j, k
 		
-		do k = 2, nzm-1
+		do k = MAX(z1,2), MIN(z2,nzm-1)
 			do j = y1, y2
 				do i = x1, x2
 					fadv(i,j,k) = fadv(i,j,k) &
@@ -352,7 +362,7 @@ contains
 	
 	!--------------------------------------------------------------------------------------------------
 	
-	subroutine fct3D( f, u, v, w, flux )
+	subroutine fct3D( f, u, v, w, flux, z1, z2 )
 	
 		! Flux corrected transport to enforce monotonicity
 		! input: u, v, w: mass weighted courant number
@@ -364,6 +374,7 @@ contains
 		real, dimension(dimx1_s:dimx2_s, dimy1_s:dimy2_s, nzm), intent(inout) :: f
 		
 		! input
+                integer, intent(in) :: z1, z2
 		real, dimension(dimx1_u:dimx2_u, dimy1_u:dimy2_u, nzm), intent(in) :: u
 		real, dimension(dimx1_v:dimx2_v, dimy1_v:dimy2_v, nzm), intent(in) :: v
 		real, dimension(dimx1_w:dimx2_w, dimy1_w:dimy2_w, nz ), intent(in) :: w
@@ -380,12 +391,12 @@ contains
 		real, parameter :: eps = 1.e-10
 		
 		! Set bottom and top vertical flux zero, also horizontal sum of vertical flux for output
-		flx_z(:,:,1)  = 0.
-		flx_z(:,:,nz) = 0.
+		flx_z(:,:,1:z1)  = 0.
+		flx_z(:,:,z2:nz) = 0.
 		flux(:) = 0.
 		
 		! min and max bound with f
-		do k = 1, nzm
+		do k = MAX(1,z1), MIN(z2,nzm)
 			km1 = max(1,k-1)
 			kp1 = min(k+1,nzm)
 			do j = 0, nyp1
@@ -400,7 +411,7 @@ contains
 		enddo
 		
 		! 1st order upwind flux
-		do k = 1, nzm
+		do k = MAX(1,z1), MIN(z2,nzm)
 			do j = -1, nyp2
 				do i = -1, nxp3
 					flx_x(i,j,k) = f(i-1,j,k) * max( 0., u(i,j,k) ) + f(i,j,k) * min( 0., u(i,j,k) )
@@ -413,7 +424,7 @@ contains
 				enddo
 			enddo
 		enddo
-		do k = 2, nzm
+		do k = MAX(2,z1), MIN(nzm,z2)
 			do j = -1, nyp2
 				do i = -1, nxp2
 					flx_z(i,j,k) = f(i,j,k-1) * max( 0., w(i,j,k) ) + f(i,j,k) * min( 0., w(i,j,k) )
@@ -422,7 +433,7 @@ contains
 		enddo
 		
 		! 1st order upwind update
-		do k = 1, nzm
+		do k = MAX(1,z1), MIN(z2,nzm)
 			do j = -1, nyp2
 				do i = -1, nxp2
 					f(i,j,k) = f(i,j,k) &
@@ -438,7 +449,7 @@ contains
 		enddo
 		
 		! Antidiffusive flux
-		do k = 1, nzm
+		do k = MAX(1,z1), MIN(z2,nzm)
 			do j = 0, nyp1
 				do i = 0, nxp2
 					flx_x(i,j,k) = u(i,j,k) * fx(i,j,k) - flx_x(i,j,k)
@@ -451,7 +462,7 @@ contains
 				enddo
 			enddo
 		enddo
-		do k = 2, nzm
+		do k = MAX(2,z1), MIN(nzm,z2)
 			do j = 0, nyp1
 				do i = 0, nxp1
 					flx_z(i,j,k) = w(i,j,k) * fz(i,j,k) - flx_z(i,j,k)
@@ -461,7 +472,7 @@ contains
 		
 		! min and max bounds with upwind-updated f
 		! convert mn and mx to outflow and inflow fct scale factor
-		do k = 1, nzm
+		do k = MAX(1,z1), MIN(z2,nzm)
 			km1 = max(1,k-1)
 			kp1 = min(k+1,nzm)
 			do j = 0, nyp1
@@ -491,7 +502,7 @@ contains
 		enddo
 		
 		! Limit
-		do k = 1, nzm
+		do k = MAX(1,z1), MIN(z2,nzm)
 			do j = 1, ny
 				do i = 1, nxp1
 					flx_x(i,j,k) = max( 0., flx_x(i,j,k) ) * min( 1., mn(i-1,j,k), mx(i,j,k) ) &
@@ -506,7 +517,7 @@ contains
 				enddo
 			enddo
 		enddo
-		do k = 2, nzm
+		do k = MAX(2,z1), MIN(nzm,z2)
 			do j = 1, ny
 				do i = 1, nx
 					flx_z(i,j,k) = max( 0., flx_z(i,j,k) ) * min( 1., mn(i,j,k-1), mx(i,j,k) ) &
@@ -516,12 +527,12 @@ contains
 		enddo
 		
 		! Final update
-		do k = 1, nzm
+		do k = MAX(1,z1), MIN(z2,nzm)
 			do j = 1, ny
 				do i = 1, nx
-					f(i,j,k) = max( 0., f(i,j,k) & ! TAK 2014/05: ensure positivity
+					f(i,j,k) = f(i,j,k) &
 						+ ( flx_x(i,j,k) - flx_x(i+1,j,k) + flx_y(i,j,k) - flx_y(i,j+1,k) &
-						+ ( flx_z(i,j,k) - flx_z(i,j,k+1) ) * iadz(k) ) * irho(k) )
+						+ ( flx_z(i,j,k) - flx_z(i,j,k+1) ) * iadz(k) ) * irho(k)
 					flux(k) = flux(k) + flx_z(i,j,k)
 				enddo
 			enddo
@@ -531,7 +542,7 @@ contains
 	
 	!--------------------------------------------------------------------------------------------------
 	
-	subroutine fct2D( f, u, w, flux )
+	subroutine fct2D( f, u, w, flux, z1, z2 )
 	
 		! Flux corrected transport to enforce monotonicity
 		! input: u, w: mass weighted courant number
@@ -543,6 +554,7 @@ contains
 		real, dimension(dimx1_s:dimx2_s, dimy1_s:dimy2_s, nzm), intent(inout) :: f
 		
 		! input
+                integer, intent(in) :: z1, z2
 		real, dimension(dimx1_u:dimx2_u, dimy1_u:dimy2_u, nzm), intent(in) :: u
 		real, dimension(dimx1_w:dimx2_w, dimy1_w:dimy2_w, nz ), intent(in) :: w
 		
@@ -557,12 +569,12 @@ contains
 		real, parameter :: eps = 1.e-10
 		
 		! Set bottom and top vertical flux zero, also horizontal sum of vertical flux for output
-		flx_z(:,1)  = 0.
-		flx_z(:,nz) = 0.
+		flx_z(:,1:z1)  = 0.
+		flx_z(:,z2:nz) = 0.
 		flux(:) = 0.
 		
 		! min and max bounds with f
-		do k = 1, nzm
+		do k = MAX(1,z1), MIN(z2,nzm)
 			km1 = max(1,k-1)
 			kp1 = min(k+1,nzm)
 			do i = 0, nxp1
@@ -572,19 +584,19 @@ contains
 		enddo
 		
 		! 1st order upwind face value and residual higher-order flux
-		do k = 1, nzm
+		do k = MAX(1,z1), MIN(z2,nzm)
 			do i = -1, nxp3
 				flx_x(i,k) = f(i-1,1,k) * max( 0., u(i,1,k) ) + f(i,1,k) * min( 0., u(i,1,k) )
 			enddo
 		enddo
-		do k = 2, nzm
+		do k = MAX(2,z1), MIN(nzm,z2)
 			do i = -1, nxp2
 				flx_z(i,k) = f(i,1,k-1) * max( 0., w(i,1,k) ) + f(i,1,k) * min( 0., w(i,1,k) )
 			enddo
 		enddo
 		
 		! 1st order upwind update value
-		do k = 1, nzm
+		do k = MAX(1,z1), MIN(z2,nzm)
 			do i = -1, nxp2
 				f(i,1,k) = f(i,1,k) + ( flx_x(i,k) - flx_x(i+1,k) &
 				                    + ( flx_z(i,k) - flx_z(i,k+1) ) * iadz(k) ) * irho(k)
@@ -595,12 +607,12 @@ contains
 		enddo
 		
 		! Antidiffusive flux
-		do k = 1, nzm
+		do k = MAX(1,z1), MIN(z2,nzm)
 			do i = 0, nxp2
 				flx_x(i,k) = u(i,1,k) * fx(i,1,k) - flx_x(i,k)
 			enddo
 		enddo
-		do k = 2, nzm
+		do k = MAX(2,z1), MIN(nzm,z2)
 			do i = 0, nxp1
 				flx_z(i,k) = w(i,1,k) * fz(i,1,k) - flx_z(i,k)
 			enddo
@@ -608,7 +620,7 @@ contains
 		
 		! min and max bounds
 		! Convert mn and mx to outflow and inflow fct scale factor
-		do k = 1, nzm
+		do k = MAX(1,z1), MIN(z2,nzm)
 			km1 = max(1,k-1)
 			kp1 = min(k+1,nzm)
 			do i = 0, nxp1
@@ -628,13 +640,13 @@ contains
 		enddo
 		
 		! Limit
-		do k = 1, nzm
+		do k = MAX(1,z1), MIN(z2,nzm)
 			do i = 1, nxp1
 				flx_x(i,k) = max( 0., flx_x(i,k) ) * min( 1., mn(i-1,k), mx(i,k) ) &
 				           + min( 0., flx_x(i,k) ) * min( 1., mn(i,k), mx(i-1,k) )
 			enddo
 		enddo
-		do k = 2, nzm
+		do k = MAX(2,z1), MIN(nzm,z2)
 			do i = 1, nx
 				flx_z(i,k) = max( 0., flx_z(i,k) ) * min( 1., mn(i,k-1), mx(i,k) ) &
 				           + min( 0., flx_z(i,k) ) * min( 1., mn(i,k), mx(i,k-1) )
@@ -642,10 +654,10 @@ contains
 		enddo
 		
 		! Final updatex
-		do k = 1, nzm
+		do k = MAX(1,z1), MIN(z2,nzm)
 			do i = 1, nx
-				f(i,1,k) = max( 0., f(i,1,k) & ! TAK 2014/05: ensure positivity
-					+ ( flx_x(i,k) - flx_x(i+1,k) + ( flx_z(i,k) - flx_z(i,k+1) ) * iadz(k) ) * irho(k) )
+				f(i,1,k) = f(i,1,k) + ( flx_x(i,k) - flx_x(i+1,k) &
+				                    + ( flx_z(i,k) - flx_z(i,k+1) ) * iadz(k) ) * irho(k)
 				flux(k) = flux(k) + flx_z(i,k)
 			enddo
 		enddo

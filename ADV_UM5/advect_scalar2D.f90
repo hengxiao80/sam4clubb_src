@@ -1,4 +1,4 @@
-subroutine advect_scalar2D( f, u, w, rho, rhow, flux )
+subroutine advect_scalar2D( f, u, w, rho, rhow, flux, kmin, kmax )
 
 ! Two dimentional 5th order ULTIMATE-MACHO scheme
 
@@ -14,6 +14,7 @@ subroutine advect_scalar2D( f, u, w, rho, rhow, flux )
 	real, dimension(nzm), intent(in) :: rho
 	real, dimension(nz), intent(in) :: rhow
 	real, dimension(nz), intent(out) :: flux
+        integer, intent(inout) :: kmin, kmax
 	
 	! local
 	integer, parameter :: j = 1
@@ -83,8 +84,8 @@ subroutine advect_scalar2D( f, u, w, rho, rhow, flux )
 	endif
 	
 	! Top and bottom boundaryies
-	fz(:,:,nz) = 0.
-	fz(:,:,1) = 0.
+        fx(:,:,:) = 0.
+	fz(:,:,:) = 0.
 	
 	! Face values
 	fadv(:,:,:) = f(:,:,:)
@@ -93,26 +94,35 @@ subroutine advect_scalar2D( f, u, w, rho, rhow, flux )
 	case(0)
 		
 		! x-direction
-		call face_x_5th( 0, nxp2, 1, 1 )
-		call adv_form_update_x( 0, nxp1, 1, 1 )
+		call face_x_5th( 0, nxp2, 1, 1, kmin, kmax)
+		call adv_form_update_x( 0, nxp1, 1, 1, kmin, kmax )
 		
 		! z-direction
-		call face_z_5th( 0, nxp1, 1, 1 )
+                kmin = MAX(1,kmin-2)
+                kmax = MIN(nzm,kmax+3)
+		call face_z_5th( 0, nxp1, 1, 1, kmin, kmax )
 		
 	case(1)
 		
 		! z-direction
-		call face_z_5th( -3, nxp4, 1, 1 )
-		call adv_form_update_z( -3, nxp4, 1, 1 )
+                kmin = MAX(1,kmin-2)
+                kmax = MIN(nzm,kmax+3)
+		call face_z_5th( -3, nxp4, 1, 1, kmin, kmax )
+
+                kmin = MAX(1,kmin-1)
+                kmax = MIN(nzm,kmax+1)
+		call adv_form_update_z( -3, nxp4, 1, 1, kmin, kmax )
 		
 		! x-direction
-		call face_x_5th( 0, nxp2, 1, 1 )
+		call face_x_5th( 0, nxp2, 1, 1, kmin, kmax )
 		
 	end select
 	
 	! FCT to ensure positive definite or monotone
 	if (fct) then
-		call fct2D( f, u, w, flux )
+                kmin = MAX(1,kmin-3)
+                kmax = MIN(nzm,kmax+3)
+		call fct2D( f, u, w, flux, kmin, kmax )
 	else
 		! In case...
 		!fz(:,:,nz) = 0.
@@ -122,9 +132,9 @@ subroutine advect_scalar2D( f, u, w, rho, rhow, flux )
 		flux = 0.
 		do k = 1, nzm
 			do i = 1, nx
-				f(i,j,k) = max(0.,f(i,j,k) & ! TAK 2014/05: ensure positivity
+				f(i,j,k) = f(i,j,k) &
 					+ ( u(i,j,k) * fx(i,j,k) - u(i+1,j,k) * fx(i+1,j,k) &
-					+ ( w(i,j,k) * fz(i,j,k) - w(i,j,k+1) * fz(i,j,k+1) ) * iadz(k) ) * irho(k) )
+					+ ( w(i,j,k) * fz(i,j,k) - w(i,j,k+1) * fz(i,j,k+1) ) * iadz(k) ) * irho(k)
 				flux(k) = flux(k) + w(i,j,k) * fz(i,j,k)
 			enddo
 		enddo

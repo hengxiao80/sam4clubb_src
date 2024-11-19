@@ -144,6 +144,23 @@ select case (ptype)
      end do
 
 
+  case(22) !bloss: Try to make a general perturbation for boundary layer cloud simulations.
+           ! Add noise everywhere that the water mass mixing ratio is more than half
+           !   the value at the surface.  The noise has amplitude of 0.1K and 2% of the initial q0(k).
+
+     do k=1,nzm
+      do j=1,ny
+       do i=1,nx
+         rrr=1.-2.*ranf_()
+         if(q0(k).gt.0.5*q0(1)) then
+            t(i,j,k)=t(i,j,k)+0.1*rrr
+            micro_field(i,j,k,index_water_vapor)= &
+                 (1. + 0.02*rrr)*micro_field(i,j,k,index_water_vapor)
+         endif
+       end do
+      end do
+     end do
+
   case default
 
        if(masterproc) print*,'perturb_type is not defined in setperturb(). Exitting...'

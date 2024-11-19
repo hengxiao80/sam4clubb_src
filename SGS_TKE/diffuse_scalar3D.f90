@@ -66,33 +66,11 @@ if(dowally) then
   end if
   if(rank.gt.nsubdomains-nsubdomains_x-1) then
     do k=1,nzm
-       do i=1,ny
+       do i=1,nx
          field(i,ny+YES3D,k) = field(i,ny,k)
        end do
     end do
   end if
-
-end if
-
-
-
-if(dowally) then
-
- call task_rank_to_index(rank, ib, jb)
- if(jb.eq.0) then
-   do k=1,nzm
-     do i=1,nx
-       field(i,1-YES3D,k) = field(i,1,k)
-     end do
-   end do
- end if
- if(jb.eq.nsubdomains_y-1) then
-   do k=1,nzm
-     do i=1,nx
-       field(i,ny+YES3D,k) = field(i,ny,k)
-     end do
-   end do
- end if
 
 end if
 
@@ -168,8 +146,11 @@ do k=1,nzm
  rhoi = 1./(adz(k)*rho(k))
  do j=1,ny
   do i=1,nx		 
-   dfdt(i,j,k)=dtn*(dfdt(i,j,k)-(flx(i,j,k)-flx(i,j,kb))*rhoi)
-   field(i,j,k)=field(i,j,k)+dfdt(i,j,k)
+!bloss: Edit to make result less sensitive to compiler
+!bloss   dfdt(i,j,k)=dtn*(dfdt(i,j,k)-(flx(i,j,k)-flx(i,j,kb))*rhoi)
+!bloss   field(i,j,k)=field(i,j,k)+dfdt(i,j,k)
+   dfdt(i,j,k)=dfdt(i,j,k)-(flx(i,j,k)-flx(i,j,kb))*rhoi
+   field(i,j,k)=field(i,j,k)+dtn*dfdt(i,j,k)
   end do 
  end do 	 
 end do 

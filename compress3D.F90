@@ -26,7 +26,7 @@ character(7) form
 integer int_fac, integer_max, integer_min
 parameter (int_fac=2,integer_min=-32000, integer_max=32000)
 !	parameter (int_fac=1,integer_min=-127, integer_max=127)
-real(4) f_max,f_min, f_max1, f_min1, scale
+real(4) f_max,f_min, f_max1, f_min1, scale, tmp1(1), tmp2(1)
 integer i,j,k,req
 
 ! Allocate byte array:
@@ -87,10 +87,12 @@ else
     end do
    end do
    if(dompi) then
-     f_max1=f_max
-     f_min1=f_min
-     call task_max_real4(f_max1,f_max,1)
-     call task_min_real4(f_min1,f_min,1)
+     tmp1(1)=f_max
+     call task_max_real4(tmp1,tmp2,1)
+     f_max = tmp2(1)
+     tmp1(1)=f_min
+     call task_min_real4(tmp1,tmp2,1)
+     f_min = tmp2(1)
    endif
 
    if(abs(f_max).lt.10..and.abs(f_min).lt.10.) then

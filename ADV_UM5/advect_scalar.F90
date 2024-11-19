@@ -1,4 +1,4 @@
-subroutine advect_scalar( f, fadv, flux, f2leadv, f2legrad, fwleadv, doit )
+subroutine advect_scalar( f, fadv, flux, f2leadv, f2legrad, fwleadv, do_poslimit, doit )
  	
 !	5th order ultimate-macho advection scheme
 ! Yamaguchi, T., D. A. Randall, and M. F. Khairoutdinov, 2011:
@@ -22,6 +22,7 @@ subroutine advect_scalar( f, fadv, flux, f2leadv, f2legrad, fwleadv, doit )
 	real, dimension(dimx1_s:dimx2_s, dimy1_s:dimy2_s, nzm), intent(inout) :: f
 	real, dimension(nz), intent(out) :: flux, fadv
 	real, dimension(nzm), intent(out) :: f2leadv, f2legrad, fwleadv
+	logical, intent(in) :: do_poslimit !bloss: added for compatibility with SELPPM
 	logical, intent(in) :: doit
 	
 	!	local
@@ -29,7 +30,7 @@ subroutine advect_scalar( f, fadv, flux, f2leadv, f2legrad, fwleadv, doit )
 	real, dimension(nzm) :: f0, df0
 	real, dimension(nz) :: fff
 	real :: factor, coef
-	integer :: i, j, k
+	integer :: i, j, k, kmin, kmax
 	
 	
 	if(docolumn) then
@@ -39,14 +40,52 @@ subroutine advect_scalar( f, fadv, flux, f2leadv, f2legrad, fwleadv, doit )
 	
 	call t_startf ('advect_scalars')
 	
+        ! If the upper and bottom parts of the domain are all zeros,
+        !   don't bother computing fluxes there.  Only compute
+        !   between kmin and kmax
+        if((f(1,1,nzm).ne.0.).OR.compute_advection_everywhere) then
+          ! if there are non-zeros at the top level (as for water vapor, energy)
+          !   compute fluxes for the whole domain.
+          kmin = 1
+          kmax = nzm
+        else
+          ! check for non-zeros, starting from the top of the domain.
+          kmax = -1
+          do k = nzm,1,-1
+            if(MAXVAL(ABS(f(:,:,k))).ne.0.) then
+              kmax = k
+              EXIT
+            end if
+          end do
+
+          kmin = MIN(nzm,kmax+2)
+          do k = 1,kmax
+            if(MAXVAL(ABS(f(:,:,k))).ne.0.) then
+              kmin = k
+              EXIT
+            end if
+          end do
+
+!bloss          write(*,*) 'kmin = ', kmin, ' kmax = ', kmax
+        end if
+
+        if(kmax.lt.0) then
+          ! without any non-zero values, return.
+          flux = 0.
+          f2leadv = 0.
+          f2legrad = 0.
+          call t_stopf ('advect_scalars')
+          return
+        endif
+
 	if (dostatis) then
 		df(:,:,:) = f(:,:,:)
 	endif
 	
 	if (RUN3D) then
-		call advect_scalar3D(f, u, v, w, rho, rhow, flux)
+		call advect_scalar3D(f, u, v, w, rho, rhow, flux, kmin, kmax)
 	else
-		call advect_scalar2D(f, u, w, rho, rhow, flux)	  
+		call advect_scalar2D(f, u, w, rho, rhow, flux, kmin, kmax)	  
 	endif
 	
 	if (dostatis) then
@@ -74,10 +113,13 @@ subroutine advect_scalar( f, fadv, flux, f2leadv, f2legrad, fwleadv, doit )
 		enddo
 		coef = max( 1.e-10, maxval( df(dimx1_s:dimx2_s,dimy1_s:dimy2_s,1:nzm) ) )
 		df(:,:,:) = df(:,:,:) / coef
+
+                kmin = 1
+                kmax = nzm
 		if (RUN3D) then
-			call advect_scalar3D(df, u, v, w, rho, rhow, fff)
+			call advect_scalar3D(df, u, v, w, rho, rhow, fff, kmin, kmax)
 		else
-			call advect_scalar2D(df, u, w, rho, rhow, fff)	  
+			call advect_scalar2D(df, u, w, rho, rhow, fff, kmin, kmax)	  
 		endif
 #ifdef UWM_MISC
 		fff(:) = fff(:)*coef

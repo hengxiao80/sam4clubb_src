@@ -30,7 +30,7 @@ integer, parameter :: nyp4 = ny + 4 * YES3D
 integer, parameter :: dimx1_u = -1                !!-1        -1        -1        -1
 integer, parameter :: dimx2_u = nxp3              !!nxp3      nxp3      nxp3      nxp3
 integer, parameter :: dimy1_u = 1-(2+NADV)*YES3D  !!1-5*YES3D 1-4*YES3D 1-3*YES3D 1-2*YES3D
-integer, parameter :: dimy2_u = nyp2+NADV         !!nyp5      nyp4      nyp3      nyp2
+integer, parameter :: dimy2_u = nyp2+NADV*YES3D   !!nyp5      nyp4      nyp3      nyp2
 integer, parameter :: dimx1_v = -1-NADV           !!-4        -3        -2        -1
 integer, parameter :: dimx2_v = nxp2+NADV         !!nxp5      nxp4      nxp3      nxp2
 integer, parameter :: dimy1_v = 1-2*YES3D         !!1-2*YES3D 1-2*YES3D 1-2*YES3D 1-2*YES3D
@@ -38,11 +38,11 @@ integer, parameter :: dimy2_v = nyp3              !!nyp3       nyp3      nyp3   
 integer, parameter :: dimx1_w = -1-NADV           !!-4        -3        -2        -1
 integer, parameter :: dimx2_w = nxp2+NADV         !!nxp5      nxp4      nxp3      nxp2
 integer, parameter :: dimy1_w = 1-(2+NADV)*YES3D  !!1-5*YES3D 1-4*YES3D 1-3*YES3D 1-2*YES3D
-integer, parameter :: dimy2_w = nyp2+NADV         !!nyp5      nyp4      nyp3      nyp2
+integer, parameter :: dimy2_w = nyp2+NADV*YES3D   !!nyp5      nyp4      nyp3      nyp2
 integer, parameter :: dimx1_s = -2-NADVS          !!-4        -3        -2        -2
 integer, parameter :: dimx2_s = nxp3+NADVS        !!nxp5      nxp4      nxp3      nxp3
 integer, parameter :: dimy1_s = 1-(3+NADVS)*YES3D !!1-5*YES3D 1-4*YES3D 1-3*YES3D 1-3*YES3D
-integer, parameter :: dimy2_s = nyp3+NADVS        !!nyp5      nyp4      nyp3      nyp3
+integer, parameter :: dimy2_s = nyp3+NADVS*YES3D  !!nyp5      nyp4      nyp3      nyp3
 
 integer, parameter :: ncols = nx*ny
 integer, parameter :: nadams = 3
@@ -90,6 +90,7 @@ integer nstatis	! the interval between substeps to compute statistics
 
 logical :: compute_reffc = .false. 
 logical :: compute_reffi = .false. 
+logical :: compute_reffl = .false. !bloss(2018-02): Include rain/drizzle as radiatively active 
 
 logical notopened2D  ! flag to see if the 2D output datafile is opened	
 logical notopened3D  ! flag to see if the 3D output datafile is opened	
@@ -168,6 +169,16 @@ integer:: nmovieend =99999999  ! timestep to end writting statistical moment fie
 
 logical :: isInitialized_scamiopdata = .false.
 logical :: wgls_holds_omega = .false.
+! If true, use Dge computed within microphysics for computing radiative properties
+!   of snow and cloud ice
+logical :: reff_ice_holds_Dge = .false.
+
+! If true, use raw Thompson reff values as Dge for computing radiative properties
+!   of snow and cloud ice.  I believe that this is inconsistent with the definition of
+!   size in the radiation scheme, but it follows the approach in Thompson
+!   et al (2016, Atmos Res).  Ignored if doDge_SnowAndIce==.true.
+logical :: doThompsonReffIce = .false.
+
 
 !-----------------------------------------
 end module grid

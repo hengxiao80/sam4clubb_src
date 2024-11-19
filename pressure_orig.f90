@@ -19,7 +19,7 @@ integer, parameter :: nzslab = max(1,nzm / npressureslabs)
 integer, parameter :: nx2=nx_gl+2, ny2=ny_gl+2*YES3D
 integer, parameter :: n3i=3*nx_gl/2+1,n3j=3*ny_gl/2+1
 
-real f(nx2,ny2,nzslab) ! global rhs and array for FTP coefficeients
+real(8) f(nx2,ny2,nzslab) ! global rhs and array for FTP coefficeients
 real ff(nx+1,ny+2*YES3D,nzm)	! local (subdomain's) version of f
 real buff_slabs(nxp1,nyp2,nzslab,npressureslabs)
 real buff_subs(nxp1,nyp2,nzslab,nsubdomains) 
@@ -29,7 +29,7 @@ common/tmpstack/f,ff,buff_slabs,buff_subs
 equivalence (buff_slabs,bufp_slabs)
 equivalence (buff_subs,bufp_subs)
 
-real work(nx2,ny2),trigxi(n3i),trigxj(n3j) ! FFT stuff
+real(8) work(nx2,ny2),trigxi(n3i),trigxj(n3j) ! FFT stuff
 integer ifaxj(100),ifaxi(100)
 
 real(8) a(nzm),b,c(nzm),e,fff(nzm)	
@@ -272,8 +272,8 @@ end do
 !   in the vertical for each subdomain:
 
 do k=1,nzm
-    a(k)=rhow(k)/(adz(k)*adzw(k)*dz*dz)
-    c(k)=rhow(k+1)/(adz(k)*adzw(k+1)*dz*dz)	 
+    a(k)=rhow(k)/rho(k)/(adz(k)*adzw(k)*dz*dz)
+    c(k)=rhow(k+1)/rho(k)/(adz(k)*adzw(k+1)*dz*dz)	 
 end do 
 
 call task_rank_to_index(rank,it,jt)
@@ -305,22 +305,22 @@ do j=1,nyp22-jwall
       eign=(2._8*cos(factx*xnx*xi)-2._8)*ddx2+ & 
             (2._8*cos(facty*xny*xj)-2._8)*ddy2
       if(id+jd.eq.0) then               
-         b=1._8/(eign*rho(1)-a(1)-c(1))
+         b=1._8/(eign-a(1)-c(1))
          alfa(1)=-c(1)*b
          beta(1)=fff(1)*b
       else
-         b=1._8/(eign*rho(1)-c(1))
+         b=1._8/(eign-c(1))
          alfa(1)=-c(1)*b
          beta(1)=fff(1)*b
       end if
       do k=2,nzm-1
-        e=1._8/(eign*rho(k)-a(k)-c(k)+a(k)*alfa(k-1))
+        e=1._8/(eign-a(k)-c(k)+a(k)*alfa(k-1))
         alfa(k)=-c(k)*e
         beta(k)=(fff(k)-a(k)*beta(k-1))*e
       end do
 
       fff(nzm)=(fff(nzm)-a(nzm)*beta(nzm-1))/ &
-	        (eign*rho(nzm)-a(nzm)+a(nzm)*alfa(nzm-1))
+	        (eign-a(nzm)+a(nzm)*alfa(nzm-1))
 	  
       do k=nzm-1,1,-1
        fff(k)=alfa(k)*fff(k+1)+beta(k)

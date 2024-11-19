@@ -1,4 +1,4 @@
-subroutine advect_scalar3D( f, u, v, w, rho, rhow, flux )
+subroutine advect_scalar3D( f, u, v, w, rho, rhow, flux, kmin, kmax )
 
 ! Three dimensional 5th order ULTIMATE-MACHO scheme
 
@@ -15,6 +15,7 @@ subroutine advect_scalar3D( f, u, v, w, rho, rhow, flux )
 	real, dimension(nzm), intent(in) :: rho
 	real, dimension(nz), intent(in) :: rhow
 	real, dimension(nz), intent(out) :: flux
+        integer, intent(inout) :: kmin, kmax
 	
 	! local
 	integer :: macho_order, i, j, k
@@ -122,9 +123,10 @@ subroutine advect_scalar3D( f, u, v, w, rho, rhow, flux )
 		enddo
 	endif
 	
-	! Top and bottom boundaries for fz
-	fz(:,:,nz) = 0.
-	fz(:,:,1) = 0.
+	!	Top and bottom boundaryies
+	fx(:,:,:) = 0.
+	fy(:,:,:) = 0.
+	fz(:,:,:) = 0.
 	
 	! Face values
 	fadv(:,:,:) = f(:,:,:)
@@ -146,74 +148,100 @@ subroutine advect_scalar3D( f, u, v, w, rho, rhow, flux )
 	case(0) ! z => x => y
 		
 		! z-direction
-		call face_z_5th( -3, nxp4, -3, nyp4 )
-		call adv_form_update_z( -3, nxp4, -3, nyp4 )
+                kmin = MAX(1,kmin-2)
+                kmax = MIN(nzm,kmax+3)
+		call face_z_5th( -3, nxp4, -3, nyp4, kmin, kmax )
+                kmin = MAX(1,kmin-1)
+                kmax = MIN(nzm,kmax+1)
+		call adv_form_update_z( -3, nxp4, -3, nyp4, kmin, kmax )
 		! x-direction
-		call face_x_5th( 0, nxp2, -3, nyp4 )
-		call adv_form_update_x( 0, nxp1, -3, nyp4 )
+		call face_x_5th( 0, nxp2, -3, nyp4, kmin, kmax )
+		call adv_form_update_x( 0, nxp1, -3, nyp4, kmin, kmax )
 		! y direction
-		call face_y_5th( 0, nxp1, 0, nyp2 )
+		call face_y_5th( 0, nxp1, 0, nyp2, kmin, kmax )
 		
 	case(1) ! y => z => x
 		
 		! y-directioin
-		call face_y_5th( -3, nxp4, 0, nyp2 )
-		call adv_form_update_y( -3, nxp4, 0, nyp1 )
+		call face_y_5th( -3, nxp4, 0, nyp2, kmin, kmax )
+		call adv_form_update_y( -3, nxp4, 0, nyp1, kmin, kmax )
 		! z-direction
-		call face_z_5th( -3, nxp4, 0, nyp1 )
-		call adv_form_update_z( -3, nxp4, 0, nyp1 )
+                kmin = MAX(1,kmin-2)
+                kmax = MIN(nzm,kmax+3)
+		call face_z_5th( -3, nxp4, 0, nyp1, kmin, kmax )
+                kmin = MAX(1,kmin-1)
+                kmax = MIN(nzm,kmax+1)
+		call adv_form_update_z( -3, nxp4, 0, nyp1, kmin, kmax )
 		! x direction
-		call face_x_5th( 0, nxp2, 0, nyp1 )
+		call face_x_5th( 0, nxp2, 0, nyp1, kmin, kmax )
 		
 	case(2) ! x => y => z
 		
 		! x-direction
-		call face_x_5th( 0, nxp2, -3, nyp4 )
-		call adv_form_update_x( 0, nxp1, -3, nyp4 )
+		call face_x_5th( 0, nxp2, -3, nyp4, kmin, kmax )
+		call adv_form_update_x( 0, nxp1, -3, nyp4, kmin, kmax )
 		! y-direction
-		call face_y_5th( 0, nxp1, 0, nyp2 )
-		call adv_form_update_y( 0, nxp1, 0, nyp1 )
+		call face_y_5th( 0, nxp1, 0, nyp2, kmin, kmax )
+		call adv_form_update_y( 0, nxp1, 0, nyp1, kmin, kmax )
 		! z-direction
-		call face_z_5th( 0, nxp1, 0, nyp1 )
+                kmin = MAX(1,kmin-2)
+                kmax = MIN(nzm,kmax+3)
+		call face_z_5th( 0, nxp1, 0, nyp1, kmin, kmax )
+                kmin = MAX(1,kmin-1)
+                kmax = MIN(nzm,kmax+1)
 		
 	case(3) ! z => y => x
 		
 		! z-direction
-		call face_z_5th( -3, nxp4, -3, nyp4 )
-		call adv_form_update_z( -3, nxp4, -3, nyp4 )
+                kmin = MAX(1,kmin-2)
+                kmax = MIN(nzm,kmax+3)
+		call face_z_5th( -3, nxp4, -3, nyp4, kmin, kmax )
+                kmin = MAX(1,kmin-1)
+                kmax = MIN(nzm,kmax+1)
+		call adv_form_update_z( -3, nxp4, -3, nyp4, kmin, kmax )
 		! y-direction
-		call face_y_5th( -3, nxp4, 0, nyp2 )
-		call adv_form_update_y( -3, nxp4, 0, nyp1 )
+		call face_y_5th( -3, nxp4, 0, nyp2, kmin, kmax )
+		call adv_form_update_y( -3, nxp4, 0, nyp1, kmin, kmax )
 		! x direction
-		call face_x_5th( 0, nxp2, 0, nyp1 )
+		call face_x_5th( 0, nxp2, 0, nyp1, kmin, kmax )
 		
 	case(4) ! x => z => y
 		
 		! x-direction
-		call face_x_5th( 0, nxp2, -3, nyp4 )
-		call adv_form_update_x( 0, nxp1, -3, nyp4 )
+		call face_x_5th( 0, nxp2, -3, nyp4, kmin, kmax )
+		call adv_form_update_x( 0, nxp1, -3, nyp4, kmin, kmax )
 		! z-direction
-		call face_z_5th( 0, nxp1, -3, nyp4 )
-		call adv_form_update_z( 0, nxp1, -3, nyp4 )
+                kmin = MAX(1,kmin-2)
+                kmax = MIN(nzm,kmax+3)
+		call face_z_5th( 0, nxp1, -3, nyp4, kmin, kmax )
+                kmin = MAX(1,kmin-1)
+                kmax = MIN(nzm,kmax+1)
+		call adv_form_update_z( 0, nxp1, -3, nyp4, kmin, kmax )
 		! y direction
-		call face_y_5th( 0, nxp1, 0, nyp2 )
+		call face_y_5th( 0, nxp1, 0, nyp2, kmin, kmax )
 		
 	case(5) ! y => x => z
 		
 		! y-directioin
-		call face_y_5th( -3, nxp4, 0, nyp2 )
-		call adv_form_update_y( -3, nxp4, 0, nyp1 )
+		call face_y_5th( -3, nxp4, 0, nyp2, kmin, kmax )
+		call adv_form_update_y( -3, nxp4, 0, nyp1, kmin, kmax )
 		! x-direction
-		call face_x_5th( 0, nxp2, 0, nyp1 )
-		call adv_form_update_x( 0, nxp1, 0, nyp1 )
+		call face_x_5th( 0, nxp2, 0, nyp1, kmin, kmax )
+		call adv_form_update_x( 0, nxp1, 0, nyp1, kmin, kmax )
 		! z-direction
-		call face_z_5th( 0, nxp1, 0, nyp1 )
+                kmin = MAX(1,kmin-2)
+                kmax = MIN(nzm,kmax+3)
+		call face_z_5th( 0, nxp1, 0, nyp1, kmin, kmax )
+                kmin = MAX(1,kmin-1)
+                kmax = MIN(nzm,kmax+1)
 		
 	end select
 	
 	! FCT to ensure positive definite or monotonicity
 	if (fct) then
-		call fct3D( f, u, v, w, flux )
+                kmin = MAX(1,kmin-1)
+                kmax = MIN(nzm,kmax+1)
+		call fct3D( f, u, v, w, flux, kmin, kmax )
 	else
 		! In case...
 		!fz(:,:,nz) = 0.

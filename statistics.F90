@@ -1557,7 +1557,7 @@ real, dimension(nzm) :: vwp ! vapor water path [ kg / m^2 ]
 
 	do k=nzm,1,-1
 	 prof1(k)=(radqrlw(k)+radqrsw(k))*factor_xy
-	 tmp(1)=rho(k)*adzw(k)*dz
+	 tmp(1)=rho(k)*adz(k)*dz
          kc = min(nzm,k+1)
          kb = max(1,k-1)
          tmp(2)=1./(z(kc)-z(kb))
