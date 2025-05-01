@@ -53,6 +53,7 @@ nfields = nfields + 1 ! add one for radar reflectivity
 if( .not.docloud .and. .not.(doclubb.or.doclubbnoninter ) ) nfields=nfields-1 ! dschanen UWM 19 June
 #else
 if(.not.docloud) nfields=nfields-1
+if(.not.doprecip) nfields=nfields-1
 #endif
 #ifdef CLUBB
 if( doclubb ) nfields=nfields+11 ! dschanen UWM 28 May 2008
