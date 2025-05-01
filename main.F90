@@ -172,6 +172,12 @@ do while(nstep.lt.nstop.and.nelapse.gt.0)
   time = time + dt
   day = day0 + nstep*dt/86400.
   nelapse = nelapse - 1
+
+  ! homogenize the cloud environment horizontally 
+  ! at the beginning of each time step
+  ! --- Heng Xiao, 
+  call homogenize_cld_env()
+
 !------------------------------------------------------------------
 !  Check if the dynamical time step should be decreased 
 !  to handle the cases when the flow being locally linearly unstable

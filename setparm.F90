@@ -38,6 +38,9 @@ NAMELIST /PARAMETERS/ dodamping, doupperbound, docloud, doprecip, &
                 ! --- Heng Xiao 09/24/2024
                 READ_IN_GEOSTROPHIC_WIND, &
                 ! --- Heng Xiao 09/24/2024
+                ! --- Heng Xiao 05/01/2025
+                nstep_homo, &
+                ! --- Heng Xiao 05/01/2025
                 doensemble, nensemble, dowallx, dowally, &
                 nsave2D, nsave2Dstart, nsave2Dend, qnsave3D, & 
                 docolumn, save2Dbin, save2Davg, save3Dbin, &
