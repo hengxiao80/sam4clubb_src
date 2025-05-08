@@ -13,7 +13,17 @@ integer i,j,k,ptype,it,jt
 real rrr,ranf_
 real xxx,yyy,zzz
 
-call ranset_(3*rank)
+integer :: n_seeds
+integer, allocatable :: seeds(:)
+
+! call ranset_(3*rank)
+! call random_init(repeatable=.true., image_distinct=.true.)
+call random_seed(size=n_seeds)
+allocate(seeds(n_seeds))
+do i = 1, n_seeds
+  seeds(i) = i + rank * 100000
+end do
+call random_seed(put=seeds)
 
 ptype = perturb_type
 
@@ -119,6 +129,7 @@ select case (ptype)
 #else
          if(z(k).le.1600.) then
 #endif
+            if (i .eq. 16 .and. j .eq. 16 .and. k .eq. 16) print*, " Random # peak: ", rank, rrr
             t(i,j,k)=t(i,j,k)+0.1*rrr
             micro_field(i,j,k,index_water_vapor)= &
                       micro_field(i,j,k,index_water_vapor)+0.025e-3*rrr
