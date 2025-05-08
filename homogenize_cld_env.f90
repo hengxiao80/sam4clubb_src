@@ -23,6 +23,10 @@ subroutine homogenize_cld_env
 
   integer :: i, j, k
 
+  env_counts(:) = 0.0
+  mqt_env(:) = 0.0
+  mtabs_env(:) = 0.0
+
   if (nstep .ge. nstep_homo) then
 
     ! calculate mean and variance of tracer concentration in the subdomain
@@ -76,9 +80,6 @@ subroutine homogenize_cld_env
       ! The design here tries to homogenize only the so-called "transition 
       ! layer" (Albright et al. 2023, JAS).
 
-      env_counts(k) = 0.0
-      mqt_env(k) = 0.0
-      mtabs_env(k) = 0.0
       if (l_homo(k)) then
         do i = 1, nx
           do j= 1, ny
@@ -142,6 +143,18 @@ subroutine homogenize_cld_env
       end if ! l_homo(k)
     end do
 
+    if (masterproc) then
+      open(168, file='./OUT_STAT/ehe_stats.ascii', status='unknown', &
+           format='formatted', position='append')
+      write(168, '2(i10)') nstep, nzm
+      do k = 1, nzm 
+        write(168, '(l10, f10.2, e18.12, e18.12)') &
+             l_homo(k), env_counts(k), mtabs_env(k), mqt_env(k)
+      end do
+      close(168)
+    end if
+
   endif ! nstep .ge. nstep_homo
 
+  return
 end subroutine homogenize_cld_env
