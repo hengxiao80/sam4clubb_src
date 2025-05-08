@@ -6,7 +6,7 @@ subroutine homogenize_cld_env
 
   implicit none
   ! cloud water limit in kg/kg 
-  real, parameter :: qn_limit = 1.0e-6
+  real, parameter :: qn_limit = 1.0e-18
 
   ! flags for homogenization
   logical :: l_homo(nzm)
@@ -47,7 +47,7 @@ subroutine homogenize_cld_env
         buffer(k,1) = tr0(k)
         buffer(k,2) = tr_sd(k)
       end do
-      call task_sum_real8(buffer,buffer1,nzm*nb)
+      call task_sum_real8(buffer,buffer1,nzm*3)
       do k = 1, nzm
         tr0(k) = buffer1(k, 1)*coef1
         tr_sd(k) = buffer1(k, 2)*coef1
@@ -61,6 +61,9 @@ subroutine homogenize_cld_env
     end if ! dompi
 
     do k = 1, nzm
+
+      l_homo(k) = .False.
+
       ! First, decide here whether we need to homogenize at this level.
 
       ! Option #1: Homogenize whenever/wherever mean cloud water qn0 
@@ -80,7 +83,7 @@ subroutine homogenize_cld_env
         do i = 1, nx
           do j= 1, ny
             l_env(i,j,k) = .True.
-            ! cloud?
+            ! not env ?
             if ((qcl(i,j,k)+qci(i,j,k) .gt. 0.0) .or. &
                 ((tracer(i,j,k,1)-tr0(k)) .gt. tr_sd(k))) then
                   l_env(i,j,k) = .False.
@@ -105,13 +108,13 @@ subroutine homogenize_cld_env
         buffer(k,2) = mqt_env(k)
         buffer(k,3) = mtabs_env(k)
       end do
-      call task_sum_real8(buffer,buffer1,nzm*nb)
+      call task_sum_real8(buffer,buffer1,nzm*3)
       do k = 1, nzm
         if (l_homo(k)) then
           env_counts(k) = buffer1(k, 1)
           mqt_env(k) = buffer1(k, 2)
           mtabs_env(k) = buffer1(k, 3)
-          ! very unlikely to have zero env point, but ...
+          ! very unlikely to have no env points, but ...
           if (env_counts(k) .gt. 0.5) then
             mqt_env(k) = mqt_env(k)/env_counts(k)
             mtabs_env(k) = mtabs_env(k)/env_counts(k)
@@ -131,7 +134,7 @@ subroutine homogenize_cld_env
             if (l_env(i,j,k)) then
               micro_field(i,j,k,1) = mqt_env(k)
               ! we only homogenize actual temperature or potential temperature
-              ! the part due to latent heat is untouched
+              ! the part of TL associated with latent heat is untouched
               t(i,j,k) = t(i,j,k) - tabs(i,j,k) + mtabs_env(k)
             end if ! l_env(i,j,k)
           end do
