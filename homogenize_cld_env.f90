@@ -6,10 +6,10 @@ subroutine homogenize_cld_env
 
   implicit none
   ! cloud water limit in kg/kg 
-  real, parameter :: qn_limit = 1.0e-18
+  real, parameter :: qn_limit = 1.0e-6
 
   ! flags for homogenization
-  logical :: l_homo(nzm)
+  logical :: l_homo(nzm), l_c(nzm)
   logical :: l_env(nx, ny, nzm)
 
   ! horizontal mean and standard deviation of tracer concentration
@@ -17,6 +17,12 @@ subroutine homogenize_cld_env
 
   ! env counts and means
   real :: env_counts(nzm), mqt_env(nzm), mtabs_env(nzm)
+
+  ! column cloud base counts
+  real :: ccb_counts(nzm)
+  ! kcb is the domain-wide cloud-base level,
+  ! also the lowest level for homogenization.
+  integer :: kcb
 
   ! variables for collecting statistics
   real(8) coef, coef1, buffer(nzm,3), buffer1(nzm,3)
@@ -27,7 +33,7 @@ subroutine homogenize_cld_env
   mqt_env(:) = 0.0
   mtabs_env(:) = 0.0
 
-  if (nstep .ge. nstep_homo) then
+  if (nstep .gt. nstep_homo1 .and. nstep .lt. nstep_homo2) then
 
     ! calculate mean and variance of tracer concentration in the subdomain
     coef = 1./float(nx*ny)
@@ -64,23 +70,47 @@ subroutine homogenize_cld_env
       end do
     end if ! dompi
 
+    ! Determine the domain-wide cloudy levels using qn0
     do k = 1, nzm
+      l_c(k) = .False.
+      if (qn0(k) .gt. qn_limit) l_c(k) = .True.
+    end do
 
+    ! Find the level where the column-wise cloud base occuring frequency
+    ! maximizes, i.e., the level where the column-wise cloud base occurs most often. 
+    ! First sample through the subdomain
+    ccb_counts(:) = 0.0
+    do i = 1, nx
+      do j = 1, ny
+        kcb = 0
+        do k = nzm, 1, -1
+          if ((qcl(i,j,k)+qci(i,j,k)) .gt. 1.0e-18) kcb = k
+        enddo
+        if (kcb .gt. 0) ccb_counts(kcb) = ccb_counts(kcb) + 1.0
+      enddo 
+    enddo 
+    ! Then for the entire horizontal domain
+    kcb = 0 
+    if(dompi) then
+      do k = 1, nzm
+        buffer(k,1) = ccb_counts(k)
+      end do
+      call task_sum_real8(buffer,buffer1,nzm*3)
+      do k = 1, nzm
+        ccb_counts(k) = buffer1(k, 1)
+        if (kcb .eq. 0) then
+          if (ccb_counts(k) .gt. 0.5) kcb = k
+        else
+          if (ccb_counts(k) .gt. ccb_counts(kcb)) kcb = k 
+        end if
+      end do
+    end if ! dompi
+
+    ! calculate env counts and mean qt and tabs within the subdomain
+    do k = 1, nzm
       l_homo(k) = .False.
-
-      ! First, decide here whether we need to homogenize at this level.
-
-      ! Option #1: Homogenize whenever/wherever mean cloud water qn0 
-      ! (cloud liquid+ice for M2005) exceeds the limit.
-      ! We should be able to use qn0 directly because it has just been updated
-      ! in diagnose() right above the call to this subroutine in main().
-      if (qn0(k) .gt. qn_limit) l_homo(k) = .True.
-
-      ! Option #2: Homogenize only where <w'tv'> is negative.
-      ! The design here tries to homogenize only the so-called "transition 
-      ! layer" (Albright et al. 2023, JAS).
-
-      if (l_homo(k)) then
+      if (l_c(k) .and. (k .ge. kcb)) then
+        l_homo(k) = .True.
         do i = 1, nx
           do j= 1, ny
             l_env(i,j,k) = .True.
@@ -99,9 +129,8 @@ subroutine homogenize_cld_env
             end if ! l_env(i,j,k)
           end do 
         end do
-      end if ! l_homo(k)
+      end if ! l_c(k) .and. (k .ge. kb)
     enddo
-
     ! calculate the env means over the entire horizontal domain
     if(dompi) then
       do k = 1, nzm
@@ -127,7 +156,7 @@ subroutine homogenize_cld_env
       end do
     end if ! dompi
 
-    ! update the prognostic variables for the smoothing
+    ! smooth out the prognostic variables in the environment
     do k = 1, nzm
       if (l_homo(k)) then
         do i = 1, nx
@@ -143,18 +172,22 @@ subroutine homogenize_cld_env
       end if ! l_homo(k)
     end do
 
+    ! output on masterproc
     if (masterproc) then
       open(168, file='./OUT_STAT/ehe_stats.ascii', status='unknown', &
            form='formatted', position='append')
-      write(168, '(2i10)') nstep, nzm
+      write(168, '(3i10)') nstep, nzm, kcb
       do k = 1, nzm 
-        write(168, '(l10, f10.2, e18.12, e18.12)') &
-             l_homo(k), env_counts(k), mtabs_env(k), mqt_env(k)
+        write(168, '(2l3, 6e18.12)') &
+             l_homo(k), l_c(k), &
+             tr0(k), tr_sd(k), &
+             env_counts(k), ccb_counts(k), &
+             mtabs_env(k), mqt_env(k)
       end do
       close(168)
     end if
 
-  endif ! nstep .ge. nstep_homo
+  endif ! nstep .gt. nstep_homo1 .and. nstep .lt. nstep_homo2
 
   return
 end subroutine homogenize_cld_env

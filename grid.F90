@@ -169,6 +169,7 @@ integer:: nmovieend =99999999  ! timestep to end writting statistical moment fie
 logical :: isInitialized_scamiopdata = .false.
 logical :: wgls_holds_omega = .false.
 
-integer :: nstep_homo = 99999999 ! for environment homogenization experiments
+integer :: nstep_homo1 = 99999999 ! for environment homogenization experiments
+integer :: nstep_homo2 = 99999999 ! for environment homogenization experiments
 !-----------------------------------------
 end module grid
