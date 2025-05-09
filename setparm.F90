@@ -118,6 +118,8 @@ end if
 
 	notopened2D = .true.
 	notopened3D = .true.
+        
+	no_ehe_file = .true.
 
         call zero_instr_diag() ! initialize instruments output 
         call sgs_setparm() ! read in SGS options from prm file.

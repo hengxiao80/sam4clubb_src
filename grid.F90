@@ -94,6 +94,7 @@ logical :: compute_reffi = .false.
 logical notopened2D  ! flag to see if the 2D output datafile is opened	
 logical notopened3D  ! flag to see if the 3D output datafile is opened	
 logical notopenedmom ! flag to see if the statistical moment file is opened
+logical no_ehe_file  ! flag to see if env homogenization statistics file is created
 
 !-----------------------------------------
 ! Parameters controled by namelist PARAMETERS

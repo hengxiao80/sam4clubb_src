@@ -174,8 +174,14 @@ subroutine homogenize_cld_env
 
     ! output on masterproc
     if (masterproc) then
-      open(168, file='./OUT_STAT/ehe_stats.ascii', status='unknown', &
-           form='formatted', position='append')
+      if (no_ehe_file) then
+        open(168, file='./OUT_STAT/ehe_stats.ascii', status='unknown', &
+             form='formatted')
+        no_ehe_file = .False.
+      else
+        open(168, file='./OUT_STAT/ehe_stats.ascii', status='unknown', &
+            form='formatted', position='append')
+      endif ! no_ehe_file
       write(168, '(3i10)') nstep, nzm, kcb
       do k = 1, nzm 
         write(168, '(2l3, 6e18.12)') &
@@ -185,7 +191,7 @@ subroutine homogenize_cld_env
              mtabs_env(k), mqt_env(k)
       end do
       close(168)
-    end if
+    end if ! masterproc
 
   endif ! nstep .gt. nstep_homo1 .and. nstep .lt. nstep_homo2
 
