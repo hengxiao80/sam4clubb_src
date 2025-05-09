@@ -145,8 +145,8 @@ subroutine homogenize_cld_env
 
     if (masterproc) then
       open(168, file='./OUT_STAT/ehe_stats.ascii', status='unknown', &
-           format='formatted', position='append')
-      write(168, '2(i10)') nstep, nzm
+           form='formatted', position='append')
+      write(168, '(2i10)') nstep, nzm
       do k = 1, nzm 
         write(168, '(l10, f10.2, e18.12, e18.12)') &
              l_homo(k), env_counts(k), mtabs_env(k), mqt_env(k)
