@@ -23,6 +23,8 @@ subroutine homogenize_cld_env
   ! kcb is the domain-wide cloud-base level,
   ! also the lowest level for homogenization.
   integer :: kcb
+  ! #s of cloudy levels
+  integer :: n_cl, n_hcl
 
   ! variables for collecting statistics
   real(8) coef, coef1, buffer(nzm,3), buffer1(nzm,3)
@@ -71,9 +73,24 @@ subroutine homogenize_cld_env
     end if ! dompi
 
     ! Determine the domain-wide cloudy levels using qn0
+    n_cl = 0
     do k = 1, nzm
       l_c(k) = .False.
-      if (qn0(k) .gt. qn_limit) l_c(k) = .True.
+      if (qn0(k) .gt. qn_limit) then
+        l_c(k) = .True.
+        n_cl = n_cl + 1
+      end if
+    end do
+
+    ! only homogenize the upper half of the cloud layer
+    n_hcl = 0
+    l_homo(:) = .False.
+    do k = nzm, 1, -1
+      if (l_c(k)) then
+        n_hcl = n_hcl + 1
+        l_homo(k) = .True.
+        if (n_hcl .gt. n_cl*0.5) l_homo(k) = .False.
+      end if ! l_c(k)
     end do
 
     ! Find the level where the column-wise cloud base occuring frequency
@@ -106,11 +123,16 @@ subroutine homogenize_cld_env
       end do
     end if ! dompi
 
+    ! only homogenize the levels at and above kcb
+    if (kcb .gt. 1) then
+      do k = 1, kcb-1
+        l_homo(k) = .False.
+      end do
+    end if ! kcb .gt. 1
+
     ! calculate env counts and mean qt and tabs within the subdomain
     do k = 1, nzm
-      l_homo(k) = .False.
-      if (l_c(k) .and. (k .ge. kcb)) then
-        l_homo(k) = .True.
+      if (l_homo(k)) then
         do i = 1, nx
           do j= 1, ny
             l_env(i,j,k) = .True.
@@ -129,8 +151,9 @@ subroutine homogenize_cld_env
             end if ! l_env(i,j,k)
           end do 
         end do
-      end if ! l_c(k) .and. (k .ge. kb)
+      end if ! l_homo(k)
     enddo
+
     ! calculate the env means over the entire horizontal domain
     if(dompi) then
       do k = 1, nzm
