@@ -144,7 +144,7 @@ subroutine homogenize_cld_env
     ! calculate env counts and mean qt and tabs within the subdomain
     do k = hl_base, hl_top
       do i = 1, nx
-        do j= 1, ny
+        do j = 1, ny
           l_env(i,j,k) = .True.
           ! not env ?
           if ((qcl(i,j,k)+qci(i,j,k) .gt. 0.0) .or. &
@@ -186,10 +186,8 @@ subroutine homogenize_cld_env
     enddo
 
     do k = hl_base, hl_top_new
-      if (env_counts(k) .gt. 0.5) then
         mqt_env(k) = mqt_env(k)/env_counts(k)
         mtabs_env(k) = mtabs_env(k)/env_counts(k)
-      endif ! env_counts(k) .gt. 0.5
     enddo
 
     ! smooth out the prognostic variables in the environment
@@ -197,7 +195,7 @@ subroutine homogenize_cld_env
       do i = 1, nx
         do j = 1, ny
           if (l_env(i,j,k)) then
-            ! micro_field(i,j,k,1) = mqt_env(k)
+            micro_field(i,j,k,1) = mqt_env(k)
             ! we only homogenize actual temperature or potential temperature
             ! the part of TL associated with latent heat is untouched
             t(i,j,k) = t(i,j,k) - tabs(i,j,k) + mtabs_env(k)
@@ -216,9 +214,9 @@ subroutine homogenize_cld_env
         open(168, file='./OUT_STAT/ehe_stats.ascii', status='unknown', &
             form='formatted', position='append')
       endif ! no_ehe_file
-      write(168, '(3i10)') nstep, nzm, kcb, cl_base, cl_top, hl_base, hl_top, hl_top_new
+      write(168, '(8i10)') nstep, nzm, kcb, cl_base, cl_top, hl_base, hl_top, hl_top_new
       do k = 1, nzm 
-        write(168, '(2l3, 6e18.12)') &
+        write(168, '(6e20.12)') &
              tr0(k), tr_sd(k), &
              env_counts(k), ccb_counts(k), &
              mtabs_env(k), mqt_env(k)
