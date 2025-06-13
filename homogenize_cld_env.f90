@@ -9,11 +9,13 @@ subroutine homogenize_cld_env
   ! cloud water limit in kg/kg 
   real, parameter :: qn_limit = 1.0e-6
 
-  ! flags for homogenization
-  logical :: l_env(nx, ny, nzm)
+  ! env grid point flag
+  logical :: l_env(nx,ny,nzm)
 
   ! horizontal mean and standard deviation of tracer concentration
   real :: tr0(nzm), tr_sd(nzm)
+  ! minimum tracer concentration required for a plume grid point
+  real :: tr_min(nzm)
 
   ! env counts and means
   real :: env_counts(nzm), mqt_env(nzm), mtabs_env(nzm)
@@ -27,7 +29,7 @@ subroutine homogenize_cld_env
   ! all cases we examine will be single-cloud-layer cases
   integer :: cl_top, cl_base
   ! top and bottom of the homogenization layer
-  integer :: hl_top, hl_base, hl_top_new
+  integer :: hl_top, hl_base
 
   ! variables for collecting statistics
   real(8) coef, coef1, buffer(nzm,3), buffer1(nzm,3)
@@ -69,6 +71,7 @@ subroutine homogenize_cld_env
         tr_sd(k) = buffer1(k, 2)*coef1
       enddo
     endif
+    tr_min(:) = 0.0
     do k = 1, nzm
       tr_sd(k) = tr_sd(k) - tr0(k)**2
       if (tr_sd(k) .gt. 0.0) then
@@ -76,6 +79,11 @@ subroutine homogenize_cld_env
       else
         tr_sd(k) = 0.0
       endif ! tr_sd(k) .gt. 0.0
+      if (k .eq. 1) then
+        tr_min(k) = 0.05*tr_sd(k)
+      else
+        tr_min(k) = (tr_min(k-1)*float(k-1) + 0.05*tr_sd(k))/float(k)
+      endif
     enddo
 
     ! Determine cl_top and cl_base using qn0
@@ -145,20 +153,19 @@ subroutine homogenize_cld_env
     do k = hl_base, hl_top
       do i = 1, nx
         do j = 1, ny
-          l_env(i,j,k) = .True.
-          ! not env ?
-          if ((qcl(i,j,k)+qci(i,j,k) .gt. 0.0) .or. &
-              ((tracer(i,j,k,1)-tr0(k)) .gt. tr_sd(k))) then
-                l_env(i,j,k) = .False.
-          endif
-          if (l_env(i,j,k)) then
+          l_env(i,j,k) = .False.
+          ! a grid point is in the environment if it is not cloudy (qcl+qci .lt. 1.0e-18)
+          ! and also not in the plume.
+          if (((qcl(i,j,k)+qci(i,j,k)) .lt. 1.0e-18) .and. &
+              (tracer(i,j,k,1) .lt. max((tr0(k)+tr_sd(k)), tr_min(k)))) then
+            l_env(i,j,k) = .True.
             env_counts(k) = env_counts(k) + 1.0
             ! qt in micro_field(:,:,:,1) in M2005
-            ! all the qts here should be just qv because qn .le. 0.0
+            ! all the qts here should be just qv because qcl+qci< 1.0e-18
             mqt_env(k) = mqt_env(k) + micro_field(i,j,k,1)
             ! tabs, just diagnosed in diagnose()
             mtabs_env(k) = mtabs_env(k) + tabs(i,j,k)
-          endif ! l_env(i,j,k)
+          endif
         enddo 
       enddo
     enddo
@@ -176,28 +183,21 @@ subroutine homogenize_cld_env
         mtabs_env(k) = buffer1(k, 3)
       enddo
     endif ! dompi
-    ! adjust hl_top in case it is too high and there are no more env/cloud pts
-    do k = hl_base, hl_top
-      if (env_counts(k) .gt. 0.5) then
-        hl_top_new = k
-      else
-        exit
-      endif ! env_counts(k) .le. 0.5
-    enddo
 
-    do k = hl_base, hl_top_new
+    do k = hl_base, hl_top
         mqt_env(k) = mqt_env(k)/env_counts(k)
         mtabs_env(k) = mtabs_env(k)/env_counts(k)
     enddo
 
     ! smooth out the prognostic variables in the environment
-    do k = hl_base, hl_top_new
+    do k = hl_base, hl_top
       do i = 1, nx
         do j = 1, ny
           if (l_env(i,j,k)) then
-            micro_field(i,j,k,1) = mqt_env(k)
-            ! we only homogenize actual temperature or potential temperature
-            ! the part of TL associated with latent heat is untouched
+            ! micro_field(i,j,k,1) = mqt_env(k)
+            ! we only homogenize actual temperature
+            ! the part of 't' associated with potential energy
+            ! and latent heat are not touched
             t(i,j,k) = t(i,j,k) - tabs(i,j,k) + mtabs_env(k)
           endif ! l_env(i,j,k)
         enddo
@@ -214,10 +214,10 @@ subroutine homogenize_cld_env
         open(168, file='./OUT_STAT/ehe_stats.ascii', status='unknown', &
             form='formatted', position='append')
       endif ! no_ehe_file
-      write(168, '(8i10)') nstep, nzm, kcb, cl_base, cl_top, hl_base, hl_top, hl_top_new
+      write(168, '(7i10)') nstep, nzm, kcb, cl_base, cl_top, hl_base, hl_top
       do k = 1, nzm 
-        write(168, '(6e20.12)') &
-             tr0(k), tr_sd(k), &
+        write(168, '(7e20.12)') &
+             tr0(k), tr_sd(k), tr_min(k), &
              env_counts(k), ccb_counts(k), &
              mtabs_env(k), mqt_env(k)
       enddo
