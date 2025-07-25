@@ -118,6 +118,7 @@ end if
 
 	notopened2D = .true.
 	notopened3D = .true.
+	notopened3D_homo = .true.
         
 	no_ehe_file = .true.
 

@@ -1,16 +1,31 @@
 subroutine homogenize_cld_env
 
+  ! This subroutine homogenizes the environment in the cloud layer
+  ! and collects statistics for the environment and cloud layer.
+  ! It is called at the beginning of each time step.
+
   use vars
+  use domain
+  use params
   use tracers, only: tracer
   use microphysics, only: micro_field
 
   implicit none
 
-  ! cloud water limit in kg/kg 
-  real, parameter :: qn_limit = 1.0e-6
+  ! mean cloud water limit in kg/kg for cloud layer determination
+  real, parameter :: qn0_limit = 1.0e-6
+  ! cloud water limit in kg/kg for cloudy grid points 
+  real, parameter :: qc_limit = 1.0e-18
+  ! parameter controlling the minimum tracer concentration anomaly
+  ! in a plume grid point, in terms of fraction of
+  ! the horizontal standard deviation 
+  real, parameter :: tr_frac = 0.5
 
   ! env grid point flag
   logical :: l_env(nx,ny,nzm)
+
+  ! fields before homogenization for output
+  real :: qt_before(nx,ny,nzm), t_before(nx,ny,nzm)
 
   ! horizontal mean and standard deviation of tracer concentration
   real :: tr0(nzm), tr_sd(nzm)
@@ -23,7 +38,7 @@ subroutine homogenize_cld_env
   real :: ccb_counts(nzm)
 
   ! kcb is the domain-wide cloud-base level,
-  ! also the lowest level for homogenization.
+  ! based on the column-wise cloud base occurrence frequency
   integer :: kcb
   ! top and bottom of the lowest layer of cloud (in terms of qn0)
   ! all cases we examine will be single-cloud-layer cases
@@ -38,6 +53,20 @@ subroutine homogenize_cld_env
   logical :: l_c
   integer :: i, j, k
 
+  ! for 3d output
+  character(len=120) :: filename
+  character(len=80) :: long_name
+  character(len=8) :: name
+  character(len=10) :: timechar
+  character(len=4) :: rankchar
+  character(len=5) :: sepchar
+  character(len=6) :: filetype
+  character(len=10) :: units
+  character(len=12) :: c_z(nzm), c_p(nzm), c_dx, c_dy, c_time
+  integer, parameter :: nfields = 5 ! number of 3d output fields
+  real(4) :: tmp(nx,ny,nzm) ! temporary array for 3d output
+
+  ! initialize local variables
   env_counts(:) = 0.0
   mqt_env(:) = 0.0
   mtabs_env(:) = 0.0
@@ -79,6 +108,8 @@ subroutine homogenize_cld_env
       else
         tr_sd(k) = 0.0
       endif ! tr_sd(k) .gt. 0.0
+      ! calculate tr_min following Dawe and Austin (2012, ACP)
+      ! and the cloud_tracker implementation
       if (k .eq. 1) then
         tr_min(k) = 0.05*tr_sd(k)
       else
@@ -87,18 +118,20 @@ subroutine homogenize_cld_env
     enddo
 
     ! Determine cl_top and cl_base using qn0
+    ! qn0 has just been updated in diagnose()
+    ! at the end of the last time step.
     cl_top = 0
     cl_base = 0
     l_c = .False.
     do k = 1, nzm
       if (l_c) then
-        if (qn0(k) .gt. qn_limit) then
+        if (qn0(k) .gt. qn0_limit) then
           cl_top = k
         else
           exit
         endif
       else
-        if (qn0(k) .gt. qn_limit) then
+        if (qn0(k) .gt. qn0_limit) then
           l_c = .True.
           cl_base = k
           cl_top = k
@@ -107,12 +140,16 @@ subroutine homogenize_cld_env
     enddo
 
     ! set hl_top to a fixed level to avoid variations of cloud top height
-    hl_top = 100 ! ~2.5 km with dz = 25 m
-    hl_base = cl_base
+    ! hl_top = 100 ! ~2.5 km with dz = 25 m
+    ! hl_top = 50 ! ~ 1.25 km
+    ! hl_top = 38 ! ~ (25 (cl_base mean) + 50) / 2
+    hl_top = 32 
+    hl_base = 29 
+    ! hl_base = cl_base
     ! set hl_base to be the mid of the cloud layer
     ! if ((hl_top - cl_base) .ge. 2) hl_base = floor(cl_base + (hl_top - cl_base)/2.0)
 
-    ! Find the level where the column-wise cloud base occuring frequency
+    ! Find, kcb, the level where the column-wise cloud base occuring frequency
     ! maximizes, i.e., the level where the column-wise cloud base occurs most often. 
     ! First sample through the subdomain
     ccb_counts(:) = 0.0
@@ -120,7 +157,7 @@ subroutine homogenize_cld_env
       do j = 1, ny
         kcb = 0
         do k = nzm, 1, -1
-          if ((qcl(i,j,k)+qci(i,j,k)) .gt. 1.0e-18) kcb = k
+          if ((qcl(i,j,k)+qci(i,j,k)) .gt. qc_limit) kcb = k
         enddo
         if (kcb .gt. 0) ccb_counts(kcb) = ccb_counts(kcb) + 1.0
       enddo 
@@ -144,10 +181,24 @@ subroutine homogenize_cld_env
       endif ! kcb .eq. 0
     enddo
 
+    ! store the before homogenization fields
+    do k = 1, nzm
+      do j = 1, ny
+        do i = 1, nx
+          qt_before(i,j,k) = micro_field(i,j,k,1)
+          t_before(i,j,k) = t(i,j,k)
+        enddo
+      enddo 
+    end do
+
     ! only homogenize the levels at and above kcb
+    ! so that we are only homogenizing the environment
+    ! in the layers where most clouds have already formed.
+    ! (actually most of the time kcb is lower than cl_base)
     if (kcb .gt. 1) then
       if (hl_base .lt. kcb) hl_base = kcb 
     endif ! kcb .gt. 1
+    ! if (hl_base .lt. 50) hl_base = 50
 
     ! calculate env counts and mean qt and tabs within the subdomain
     do k = hl_base, hl_top
@@ -156,12 +207,13 @@ subroutine homogenize_cld_env
           l_env(i,j,k) = .False.
           ! a grid point is in the environment if it is not cloudy (qcl+qci .lt. 1.0e-18)
           ! and also not in the plume.
-          if (((qcl(i,j,k)+qci(i,j,k)) .lt. 1.0e-18) .and. &
-              (tracer(i,j,k,1) .lt. max((tr0(k)+tr_sd(k)), tr_min(k)))) then
+          if (((qcl(i,j,k)+qci(i,j,k)) .lt. qc_limit) .and. &
+              ! following Dawe and Austin (2012, ACP)
+              (tracer(i,j,k,1) .lt. max((tr0(k)+tr_frac*tr_sd(k)), tr_min(k)))) then
             l_env(i,j,k) = .True.
             env_counts(k) = env_counts(k) + 1.0
             ! qt in micro_field(:,:,:,1) in M2005
-            ! all the qts here should be just qv because qcl+qci< 1.0e-18
+            ! all the qts here should be just qv because qcl+qci < qc_limit
             mqt_env(k) = mqt_env(k) + micro_field(i,j,k,1)
             ! tabs, just diagnosed in diagnose()
             mtabs_env(k) = mtabs_env(k) + tabs(i,j,k)
@@ -194,17 +246,17 @@ subroutine homogenize_cld_env
       do i = 1, nx
         do j = 1, ny
           if (l_env(i,j,k)) then
-            ! micro_field(i,j,k,1) = mqt_env(k)
+            micro_field(i,j,k,1) = mqt_env(k)
             ! we only homogenize actual temperature
             ! the part of 't' associated with potential energy
             ! and latent heat are not touched
-            t(i,j,k) = t(i,j,k) - tabs(i,j,k) + mtabs_env(k)
+            ! t(i,j,k) = t(i,j,k) - tabs(i,j,k) + mtabs_env(k)
           endif ! l_env(i,j,k)
         enddo
       enddo
     enddo
 
-    ! output on masterproc
+    ! output stats on masterproc
     if (masterproc) then
       if (no_ehe_file) then
         open(168, file='./OUT_STAT/ehe_stats.ascii', status='unknown', &
@@ -224,6 +276,162 @@ subroutine homogenize_cld_env
       close(168)
     endif ! masterproc
 
+    ! output before and after homogenization fields
+    if(mod(nstep,nsave3D).eq.0.and.nstep.ge.nstep_homo1.and.nstep.le.nstep_homo2 ) then
+      ! create the file name 
+      ! and open the file for writing
+      if(masterproc.or.output_sep) then
+        if(output_sep) then
+          write(rankchar,'(i4)') rank
+          sepchar="_"//rankchar(5-lenstr(rankchar):4)
+        else
+          sepchar=""
+        end if ! output_sep
+        write(rankchar,'(i4)') nsubdomains
+        write(timechar,'(i10)') nstep
+        do k=1,11-lenstr(timechar)-1
+          timechar(k:k)='0'
+        end do
+        if(RUN3D) then
+          if(save3Dbin) then
+            filetype = '.bin3D'
+          else
+            filetype = '.com3D'
+          end if
+          filename='./OUT_3D/'//trim(case)//'_'//trim(caseid)//'_homo_'// &
+              rankchar(5-lenstr(rankchar):4)//'_'//timechar(1:10)//filetype//sepchar
+          open(46,file=filename,status='unknown',form='unformatted')
+        else
+          if(save3Dbin) then
+            if(save3Dsep) then
+              filetype = '.bin3D'
+            else
+              filetype = '.bin2D'
+            end if
+          else
+            if(save3Dsep) then
+              filetype = '.com3D'
+            else
+              filetype = '.com2D'
+            end if
+          end if ! save3Dbin
+          if(save3Dsep) then
+            filename='./OUT_3D/'//trim(case)//'_'//trim(caseid)//'_homo_'// &
+              rankchar(5-lenstr(rankchar):4)//'_'//timechar(1:10)//filetype//sepchar
+            open(46,file=filename,status='unknown',form='unformatted')	
+          else
+            filename='./OUT_3D/'//trim(case)//'_'//trim(caseid)//'_homo_'// &
+              rankchar(5-lenstr(rankchar):4)//filetype//sepchar
+            if(nrestart.eq.0.and.notopened3D_homo) then
+              open(46,file=filename,status='unknown',form='unformatted')	
+            else
+              open(46,file=filename,status='unknown', &
+                      form='unformatted', position='append')
+            end if
+            notopened3D_homo =.false.
+          end if ! save3Dsep
+        end if ! RUN3D
+        ! write the header information on masterproc
+        if(masterproc) then
+          if(save3Dbin) then
+            write(46) nx,ny,nzm,nsubdomains,nsubdomains_x,nsubdomains_y,nfields
+            do k=1,nzm
+              write(46) z(k) 
+            end do
+            do k=1,nzm
+              write(46) pres(k)
+            end do
+            write(46) dx
+            write(46) dy
+            write(46) nstep*dt/(3600.*24.)+day0
+          else
+            write(long_name,'(8i4)') nx,ny,nzm,nsubdomains, &
+                                        nsubdomains_x,nsubdomains_y,nfields
+            do k=1,nzm
+              write(c_z(k),'(f12.3)') z(k)
+            end do
+            do k=1,nzm
+              write(c_p(k),'(f12.3)') pres(k)
+            end do
+            write(c_dx,'(f12.0)') dx
+            write(c_dy,'(f12.0)') dy
+            write(c_time,'(f12.5)') nstep*dt/(3600.*24.)+day0
+            write(46) long_name(1:32)
+            write(46) c_time,c_dx,c_dy, (c_z(k),k=1,nzm),(c_p(k),k=1,nzm)
+          end if ! save3Dbin
+        end if ! masterproc
+      end if ! masterproc.or.output_sep
+
+      ! write the fields
+      do k=1,nzm
+        do j=1,ny
+          do i=1,nx
+            tmp(i,j,k)=qt_before(i,j,k)*1.e3
+          end do
+        end do
+      end do
+      name='QT_BEFOR'
+      long_name='Total water mixing ratio before homogenization'
+      units='g/kg'
+      call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
+                      save3Dbin,dompi,rank,nsubdomains)
+      do k=1,nzm
+        do j=1,ny
+          do i=1,nx
+            tmp(i,j,k)=t_before(i,j,k)
+          end do
+        end do
+      end do
+      name='TL_BEFOR'
+      long_name='TL (prognostic) before homogenization'
+      units='K'
+      call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
+                      save3Dbin,dompi,rank,nsubdomains) 
+      do k=1,nzm
+        do j=1,ny
+          do i=1,nx
+            tmp(i,j,k)=micro_field(i,j,k, 1)*1.e3
+          end do
+        end do
+      end do
+      name='QT_AFTER'
+      long_name='Total water mixing ratio after homogenization'
+      units='g/kg'
+      call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
+                      save3Dbin,dompi,rank,nsubdomains)
+      do k=1,nzm
+        do j=1,ny
+          do i=1,nx
+            tmp(i,j,k)=t(i,j,k)
+          end do
+        end do
+      end do
+      name='TL_AFTER'
+      long_name='TL (prognostic) after homogenization'
+      units='K'
+      call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
+                      save3Dbin,dompi,rank,nsubdomains) 
+      do k=1,nzm
+        do j=1,ny
+          do i=1,nx
+            if (l_env(i,j,k)) then
+              tmp(i,j,k)=1.0
+            else
+              tmp(i,j,k)=0.0
+            end if
+          end do
+        end do
+      end do
+      name='L_ENV'
+      long_name='Environment grid point flag (1.0 for env)'
+      units=''
+      call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
+                      save3Dbin,dompi,rank,nsubdomains) 
+
+      ! close out
+      call task_barrier()
+      if (masterproc) close(46)
+    end if ! mod(nstep,nsave3D).eq.0.and.nstep.ge.nstep_homo1.and.nstep.le.nstep_homo2
   endif ! nstep .gt. nstep_homo1 .and. nstep .le. nstep_homo2
 
   return
