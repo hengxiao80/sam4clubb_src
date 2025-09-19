@@ -20,6 +20,14 @@ subroutine homogenize_cld_env
   ! in a plume grid point, in terms of fraction of
   ! the horizontal standard deviation 
   real, parameter :: tr_frac = 0.5
+  ! the relaxation time scale in number of time steps
+  ! for our standard BOMEX run, dt = 0.3 s
+  real, parameter :: relax_steps = 1.0 ! instantaneous homogenization
+  ! real, parameter :: relax_steps = 10.0 ! 3 s homogenization
+  ! real, parameter :: relax_steps = 100.0 ! 30 s homogenization
+  ! real, parameter :: relax_steps = 300.0 ! 90 s homogenization
+  ! real, parameter :: relax_steps = 1000.0 ! 300 s homogenization
+  ! real, parameter :: relax_steps = 6000.0 ! 1800 s homogenization
 
   ! env grid point flag
   logical :: l_env(nx,ny,nzm)
@@ -140,11 +148,12 @@ subroutine homogenize_cld_env
     enddo
 
     ! set hl_top to a fixed level to avoid variations of cloud top height
-    ! hl_top = 100 ! ~2.5 km with dz = 25 m
+    hl_top = 100 ! ~2.5 km with dz = 25 m
     ! hl_top = 50 ! ~ 1.25 km
     ! hl_top = 38 ! ~ (25 (cl_base mean) + 50) / 2
-    hl_top = 32 
-    hl_base = 29 
+    ! hl_top = 32 
+    hl_base = 33
+    ! hl_base = 29 
     ! hl_base = cl_base
     ! set hl_base to be the mid of the cloud layer
     ! if ((hl_top - cl_base) .ge. 2) hl_base = floor(cl_base + (hl_top - cl_base)/2.0)
@@ -246,11 +255,12 @@ subroutine homogenize_cld_env
       do i = 1, nx
         do j = 1, ny
           if (l_env(i,j,k)) then
-            micro_field(i,j,k,1) = mqt_env(k)
+            micro_field(i,j,k,1) = (mqt_env(k) + &
+              micro_field(i,j,k,1) * (relax_steps - 1.0))/relax_steps
             ! we only homogenize actual temperature
             ! the part of 't' associated with potential energy
             ! and latent heat are not touched
-            ! t(i,j,k) = t(i,j,k) - tabs(i,j,k) + mtabs_env(k)
+            ! t(i,j,k) = t(i,j,k) - (tabs(i,j,k) - mtabs_env(k))/relax_steps
           endif ! l_env(i,j,k)
         enddo
       enddo
