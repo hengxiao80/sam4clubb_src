@@ -126,6 +126,8 @@ select case (ptype)
          if(z(k) .le. 810.) then
 #elif LASSO_ENA
          if(z(k) .le. 600.) then
+#elif GOAMAZON
+         if(z(k) .le. 400.) then
 #else
          if(z(k).le.1600.) then
 #endif

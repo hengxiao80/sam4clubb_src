@@ -1885,7 +1885,7 @@ call compute_chi_eta( theta_l, micro_field(1:nx,1:ny,1:nzm,iqv), pres, prespot,&
 
 #endif /*UWM_STATS*/
 
-#if defined(ATEX) || defined(DYCOMSRF01) || defined(BOMEX) || defined(HISCALE) 
+#if defined(ATEX) || defined(DYCOMSRF01) || defined(BOMEX) || defined(HISCALE) || defined(GOAMAZON)
 ! do nothing
 #elif defined(LASSO_ENA)
 #ifdef LASSO_ENA_3D_MICRO_OUTPUT

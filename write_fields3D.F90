@@ -9,7 +9,7 @@ use sgs_params
 use rad, only: qrad
 use sgs, only: tke
 
-#if defined(ATEX) || defined(DYCOMSRF01) || defined(BOMEX) || defined(HISCALE) || defined(LASSO_ENA)
+#if defined(ATEX) || defined(DYCOMSRF01) || defined(BOMEX) || defined(HISCALE) || defined(LASSO_ENA) || defined(GOAMAZON)
 use domain
 use tracers, only: tracer, tracername
 #endif
@@ -65,7 +65,7 @@ if((dolongwave.or.doshortwave).and..not.doradhomo) nfields=nfields+1
 if(compute_reffc.and.(dolongwave.or.doshortwave).and.rad3Dout) nfields=nfields+1
 if(compute_reffi.and.(dolongwave.or.doshortwave).and.rad3Dout) nfields=nfields+1
 
-#if defined(ATEX) || defined(DYCOMSRF01) || defined(BOMEX) || defined(LASSO_ENA) || defined(HISCALE)
+#if defined(ATEX) || defined(DYCOMSRF01) || defined(BOMEX) || defined(LASSO_ENA) || defined(HISCALE) || defined(GOAMAZON)
 nfields = nfields + ntracers
 #endif
 
@@ -391,7 +391,7 @@ call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
                                save3Dbin,dompi,rank,nsubdomains)
 #endif
 
-#if defined(ATEX) || defined(DYCOMSRF01) || defined(BOMEX) || defined(HISCALE) || defined(LASSO_ENA)
+#if defined(ATEX) || defined(DYCOMSRF01) || defined(BOMEX) || defined(HISCALE) || defined(LASSO_ENA) || defined(GOAMAZON)
   do n = 1, ntracers
     nfields1=nfields1+1
     do k=1,nzm

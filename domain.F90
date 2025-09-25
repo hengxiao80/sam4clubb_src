@@ -61,11 +61,23 @@ module domain
        ! integer, parameter :: nsubdomains_x  = 64 ! No of subdomains in x
        ! integer, parameter :: nsubdomains_y  = 32 ! No of subdomains in y
        ! small-domain - 4 nodes on cirrus
-       integer, parameter :: nx_gl = 256 ! Number of grid points in Y
-       integer, parameter :: ny_gl = 256 ! Number of grid points in Y
+       ! integer, parameter :: nx_gl = 256 ! Number of grid points in Y
+       ! integer, parameter :: ny_gl = 256 ! Number of grid points in Y
        ! integer, parameter :: nz_gl = 300 ! Number of pressure (scalar) levels
-       integer, parameter :: nz_gl = 250 ! Number of pressure (scalar) levels
+       ! integer, parameter :: nz_gl = 250 ! Number of pressure (scalar) levels
        ! integer, parameter :: nz_gl = 500 ! Number of pressure (scalar) levels
+       ! 25-m res. domain - 8 nodes on perlmutter
+       integer, parameter :: nx_gl = 512 ! Number of grid points in X
+       integer, parameter :: ny_gl = 512 ! Number of grid points in Y
+       integer, parameter :: nz_gl = 200 ! Number of pressure (scalar) levels
+       integer, parameter :: nsubdomains_x  = 16 ! No of subdomains in x
+       integer, parameter :: nsubdomains_y  = 16 ! No of subdomains in y
+#elif GOAMAZON
+       integer, parameter :: YES3D = 1  ! Domain dimensionality: 1 - 3D, 0 - 2D
+       ! 250-m res. domain following TZ25 - 8 nodes on perlmutter
+       integer, parameter :: nx_gl = 512 ! Number of grid points in X
+       integer, parameter :: ny_gl = 512 ! Number of grid points in Y
+       integer, parameter :: nz_gl = 141 ! Number of pressure (scalar) levels
        integer, parameter :: nsubdomains_x  = 16 ! No of subdomains in x
        integer, parameter :: nsubdomains_y  = 16 ! No of subdomains in y
 #else
@@ -93,6 +105,8 @@ module domain
 #elif ATEX
        integer, parameter :: ntracers = 1 ! number of transported tracers (dotracers=.true.)
 #elif LASSO_ENA
+       integer, parameter :: ntracers = 1 ! number of transported tracers (dotracers=.true.)
+#elif GOAMAZON
        integer, parameter :: ntracers = 1 ! number of transported tracers (dotracers=.true.)
 #elif HISCALE
        integer, parameter :: ntracers = 4 ! number of transported tracers (dotracers=.true.)

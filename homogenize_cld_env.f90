@@ -148,13 +148,13 @@ subroutine homogenize_cld_env
     enddo
 
     ! set hl_top to a fixed level to avoid variations of cloud top height
-    hl_top = 100 ! ~2.5 km with dz = 25 m
+    ! hl_top = 100 ! ~2.5 km with dz = 25 m
     ! hl_top = 50 ! ~ 1.25 km
     ! hl_top = 38 ! ~ (25 (cl_base mean) + 50) / 2
-    ! hl_top = 32 
-    hl_base = 33
+    hl_top = 32 
+    ! hl_base = 33
     ! hl_base = 29 
-    ! hl_base = cl_base
+    hl_base = cl_base
     ! set hl_base to be the mid of the cloud layer
     ! if ((hl_top - cl_base) .ge. 2) hl_base = floor(cl_base + (hl_top - cl_base)/2.0)
 
