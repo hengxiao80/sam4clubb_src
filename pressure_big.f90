@@ -30,8 +30,8 @@ integer, parameter :: ny_s=ny_gl/nsubdomains ! width of the y-slabs
 ! Slabs:
 real fx(nx_gl, ny_s, nzm) ! slab for x-pass Fourier coefs
 real fy(ny_gl, nx_s, nzm) ! slab for y-pass Fourier coefs
-real gx(nx_gl+2, ny_s) ! array to perform FFT in x
-real gy(ny_gl+2, nx_s) ! array to perform FFT in y
+real(8) gx(nx_gl+2, ny_s) ! array to perform FFT in x
+real(8) gy(ny_gl+2, nx_s) ! array to perform FFT in y
 real ff(ny_gl+2, nx_s+1, nzm)
 
 ! Message buffers:
@@ -41,8 +41,8 @@ real bufy1(nx_s, ny, nzm)
 real bufy2(nx_s, ny, nzm, max(1,nsubdomains_y))
 
 ! FFT stuff:
-real work(max((nx_gl+3)*(ny_s+1),(nx_s+1)*(ny_gl+2)))
-real trigxi(3*nx_gl/2+1),trigxj(3*ny_gl/2+1)
+real(8) work(max((nx_gl+3)*(ny_s+1),(nx_s+1)*(ny_gl+2)))
+real(8) trigxi(3*nx_gl/2+1),trigxj(3*ny_gl/2+1)
 integer ifaxj(100),ifaxi(100)
 
 ! Tri-diagonal matrix solver coefficients:
@@ -138,14 +138,15 @@ if(rank.eq.0) then
   ff(:,2,:)=0.
 end if
 
+
 !==========================================================================
 !   Solve the tri-diagonal system for Fourier coeffiecients 
 !   in the vertical for each slab:
 
 
 do k=1,nzm
-    a(k)=rhow(k)/(adz(k)*adzw(k)*dz*dz)
-    c(k)=rhow(k+1)/(adz(k)*adzw(k+1)*dz*dz)	 
+    a(k)=rhow(k)/rho(k)/(adz(k)*adzw(k)*dz*dz)
+    c(k)=rhow(k+1)/rho(k)/(adz(k)*adzw(k+1)*dz*dz)	 
 end do 
 
 if(dowally) then
@@ -176,11 +177,11 @@ do j=1,ny_gl+2-jwall
   eign(i,j)=(2.d0*cos(2.d0*pii/xnx*xi)-2.d0)/ddx2+ &
             (2.d0*cos(fact*pii/xny*xj)-2.d0)/ddy2
   if(id+jd.eq.0) then
-     b(i,j)=eign(i,j)*rho(1)-a(1)-c(1)
+     b(i,j)=eign(i,j)-a(1)-c(1)
      alfa(i,j,1)=-c(1)/b(i,j)
      beta(i,j,1)=ff(j,i,1)/b(i,j)
   else
-     b(i,j)=eign(i,j)*rho(1)-c(1)
+     b(i,j)=eign(i,j)-c(1)
      alfa(i,j,1)=-c(1)/b(i,j)
      beta(i,j,1)=ff(j,i,1)/b(i,j)
   end if
@@ -190,7 +191,7 @@ end do
 do k=2,nzm-1
  do j=1,ny_gl+2-jwall
   do i=1,nx_s+1
-    e=eign(i,j)*rho(k)-a(k)-c(k)+a(k)*alfa(i,j,k-1)
+    e=eign(i,j)-a(k)-c(k)+a(k)*alfa(i,j,k-1)
     alfa(i,j,k)=-c(k)/e
     beta(i,j,k)=(ff(j,i,k)-a(k)*beta(i,j,k-1))/e
   end do
@@ -200,7 +201,7 @@ end do
 do j=1,ny_gl+2-jwall
   do i=1,nx_s+1
      ff(j,i,nzm)=(ff(j,i,nzm)-a(nzm)*beta(i,j,nzm-1))/ &
-                (eign(i,j)*rho(nzm)-a(nzm)+a(nzm)*alfa(i,j,nzm-1))
+                (eign(i,j)-a(nzm)+a(nzm)*alfa(i,j,nzm-1))
   end do
 end do
 
@@ -211,6 +212,14 @@ do k=nzm-1,1,-1
     end do
   end do
 end do
+
+!do i=1,nx_s+1
+!print*,'>>>',i,minval(ff(1:ny_gl,i,1:nzm)),maxval(ff(1:ny_gl,i,1:nzm))
+!end do
+!write(20,*) ny_gl
+!write(20,*) nzm
+!write(20,*) ff(1:ny_gl,1,1:nzm)
+!stop
 
 if(rank.eq.0) then
   ff(:,2,:)=ff(:,1,:)
@@ -284,7 +293,7 @@ call transpose_x_inv(fx)
       endif
 
       if(rank==ranknn) then
-         p(:,0,1:nzm) = p(:,ny,1:nzm)
+         p(:,1-YES3D,1:nzm) = p(:,ny,1:nzm)
       else
              call task_receive_float(buff_ns2(:,:),nx*nzm,reqs_in(1))
              buff_ns1(1:nx,1:nzm) = p(1:nx,ny,1:nzm)
@@ -294,12 +303,12 @@ call transpose_x_inv(fx)
                call task_test(reqs_in(1),waitflag,rf,tagrf)
              end do
          call task_barrier()
-         p(1:nx,0,1:nzm) = buff_ns2(1:nx,1:nzm)
+         p(1:nx,1-YES3D,1:nzm) = buff_ns2(1:nx,1:nzm)
       endif
 
   else
     p(0,:,1:nzm) = p(nx,:,1:nzm)
-    p(:,0,1:nzm) = p(:,ny,1:nzm)
+    p(:,1-YES3D,1:nzm) = p(:,ny,1:nzm)
   endif
 !DD end ugly wrap code.
 
@@ -454,7 +463,7 @@ contains
         else
 ! don't sent a buffer to itself, just fill directly.
 
-          n = mod(rank,nsubdomains_y)
+          n = mod(rank,nsubdomains_y) 
           call task_rank_to_index(rank,it,jt)
           do i = 1,nx_s	  
             f(1+jt:ny+jt,i,1:nzm) = p(n*nx_s+i,1:ny,1:nzm)

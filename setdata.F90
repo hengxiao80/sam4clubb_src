@@ -371,7 +371,7 @@ if(masterproc) then
    kb=max(1,k-1)
    write(6,'(i4,1x,f7.1,2f7.3,f7.2,f7.2,4f7.2,5g11.4)') k,z(k),rho(k),rhow(k),tabs0(k)+gamaz(k), &
           t0(k)+lcond/cp*qv0(k), t0(k)+lcond/cp*qsatw(tabs0(k),pres(k)), &
-		q0(k)*1.e3,u0(k)+ug,v0(k)+vg, adz(k),1./sqrt(bet(k)*(t0(k)-t0(kb))/(adzw(k)*dz))
+		q0(k)*1.e3,u0(k)+ug,v0(k)+vg, adz(k),1./sqrt(bet(k)*(max(t0(k)-t0(kb),1.0e-10))/(adzw(k)*dz))
  end do  
  print *, ' k      z    rho     rhoi    s      h     h*      qt      u      v     adz     N'
 
