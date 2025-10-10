@@ -28,20 +28,23 @@ subroutine homogenize_cld_env
   ! real, parameter :: relax_steps = 300.0 ! 90 s homogenization
   ! real, parameter :: relax_steps = 1000.0 ! 300 s homogenization
   ! real, parameter :: relax_steps = 6000.0 ! 1800 s homogenization
+  logical, parameter :: smooth_tracer = .true. ! whether to smooth out tracer in the env.
+
+  integer, parameter :: nbuff = 4
 
   ! env grid point flag
   logical :: l_env(nx,ny,nzm)
 
   ! fields before homogenization for output
-  real :: qt_before(nx,ny,nzm), t_before(nx,ny,nzm)
+  real :: qt_before(nx,ny,nzm), t_before(nx,ny,nzm), tracer1_before(nx,ny,nzm)
 
   ! horizontal mean and standard deviation of tracer concentration
-  real :: tr0(nzm), tr_sd(nzm)
+  real :: tr_mean(nzm), tr_sd(nzm)
   ! minimum tracer concentration required for a plume grid point
   real :: tr_min(nzm)
 
   ! env counts and means
-  real :: env_counts(nzm), mqt_env(nzm), mtabs_env(nzm)
+  real :: env_counts(nzm), mqt_env(nzm), mtabs_env(nzm), mtracer1_env(nzm)
   ! column cloud base counts
   real :: ccb_counts(nzm)
 
@@ -55,7 +58,7 @@ subroutine homogenize_cld_env
   integer :: hl_top, hl_base
 
   ! variables for collecting statistics
-  real(8) coef, coef1, buffer(nzm,3), buffer1(nzm,3)
+  real(8) coef, coef1, buffer(nzm,nbuff), buffer1(nzm,nbuff)
 
   ! local logicals
   logical :: l_c
@@ -71,46 +74,47 @@ subroutine homogenize_cld_env
   character(len=6) :: filetype
   character(len=10) :: units
   character(len=12) :: c_z(nzm), c_p(nzm), c_dx, c_dy, c_time
-  integer, parameter :: nfields = 5 ! number of 3d output fields
+  integer, parameter :: nfields = 7 ! number of 3d output fields in "_homo_" 3D output
   real(4) :: tmp(nx,ny,nzm) ! temporary array for 3d output
 
   ! initialize local variables
   env_counts(:) = 0.0
   mqt_env(:) = 0.0
   mtabs_env(:) = 0.0
+  mtracer1_env(:) = 0.0
 
   if (nstep .gt. nstep_homo1 .and. nstep .le. nstep_homo2) then
 
     ! calculate mean and variance of tracer concentration in the subdomain
     coef = 1./float(nx*ny)
     do k = 1, nzm
-      tr0(k) = 0.0
+      tr_mean(k) = 0.0
       tr_sd(k) = 0.0
       do i = 1, nx
         do j = 1, ny
-          tr0(k) = tr0(k) +  tracer(i,j,k,1)
+          tr_mean(k) = tr_mean(k) +  tracer(i,j,k,1)
           tr_sd(k) = tr_sd(k) + tracer(i,j,k,1)**2
         enddo 
       enddo
-      tr0(k) = tr0(k)*coef
+      tr_mean(k) = tr_mean(k)*coef
       tr_sd(k) = tr_sd(k)*coef
     enddo
     ! calculate the mean and variance over the entire horizontal domain
     if(dompi) then
       coef1 = 1./float(nsubdomains)
       do k = 1, nzm
-        buffer(k,1) = tr0(k)
+        buffer(k,1) = tr_mean(k)
         buffer(k,2) = tr_sd(k)
       enddo
-      call task_sum_real8(buffer,buffer1,nzm*3)
+      call task_sum_real8(buffer,buffer1,nzm*nbuff)
       do k = 1, nzm
-        tr0(k) = buffer1(k, 1)*coef1
+        tr_mean(k) = buffer1(k, 1)*coef1
         tr_sd(k) = buffer1(k, 2)*coef1
       enddo
     endif
     tr_min(:) = 0.0
     do k = 1, nzm
-      tr_sd(k) = tr_sd(k) - tr0(k)**2
+      tr_sd(k) = tr_sd(k) - tr_mean(k)**2
       if (tr_sd(k) .gt. 0.0) then
         tr_sd(k) = sqrt(tr_sd(k))
       else
@@ -148,10 +152,10 @@ subroutine homogenize_cld_env
     enddo
 
     ! set hl_top to a fixed level to avoid variations of cloud top height
-    ! hl_top = 100 ! ~2.5 km with dz = 25 m
+    hl_top = 100 ! ~2.5 km with dz = 25 m
     ! hl_top = 50 ! ~ 1.25 km
     ! hl_top = 38 ! ~ (25 (cl_base mean) + 50) / 2
-    hl_top = 32 
+    ! hl_top = 32 
     ! hl_base = 33
     ! hl_base = 29 
     hl_base = cl_base
@@ -176,7 +180,7 @@ subroutine homogenize_cld_env
       do k = 1, nzm
         buffer(k,1) = ccb_counts(k)
       enddo
-      call task_sum_real8(buffer,buffer1,nzm*3)
+      call task_sum_real8(buffer,buffer1,nzm*nbuff)
       do k = 1, nzm
         ccb_counts(k) = buffer1(k, 1)
       enddo
@@ -196,6 +200,7 @@ subroutine homogenize_cld_env
         do i = 1, nx
           qt_before(i,j,k) = micro_field(i,j,k,1)
           t_before(i,j,k) = t(i,j,k)
+          tracer1_before(i,j,k) = tracer(i,j,k,1)
         enddo
       enddo 
     end do
@@ -218,7 +223,7 @@ subroutine homogenize_cld_env
           ! and also not in the plume.
           if (((qcl(i,j,k)+qci(i,j,k)) .lt. qc_limit) .and. &
               ! following Dawe and Austin (2012, ACP)
-              (tracer(i,j,k,1) .lt. max((tr0(k)+tr_frac*tr_sd(k)), tr_min(k)))) then
+              (tracer(i,j,k,1) .lt. max((tr_mean(k)+tr_frac*tr_sd(k)), tr_min(k)))) then
             l_env(i,j,k) = .True.
             env_counts(k) = env_counts(k) + 1.0
             ! qt in micro_field(:,:,:,1) in M2005
@@ -226,6 +231,7 @@ subroutine homogenize_cld_env
             mqt_env(k) = mqt_env(k) + micro_field(i,j,k,1)
             ! tabs, just diagnosed in diagnose()
             mtabs_env(k) = mtabs_env(k) + tabs(i,j,k)
+            mtracer1_env(k) = mtracer1_env(k) + tracer(i,j,k,1)
           endif
         enddo 
       enddo
@@ -236,18 +242,21 @@ subroutine homogenize_cld_env
         buffer(k,1) = env_counts(k)
         buffer(k,2) = mqt_env(k)
         buffer(k,3) = mtabs_env(k)
+        buffer(k,4) = mtracer1_env(k)
       enddo
-      call task_sum_real8(buffer,buffer1,nzm*3)
+      call task_sum_real8(buffer,buffer1,nzm*nbuff)
       do k = hl_base, hl_top
         env_counts(k) = buffer1(k, 1)
         mqt_env(k) = buffer1(k, 2)
         mtabs_env(k) = buffer1(k, 3)
+        mtracer1_env(k) = buffer1(k, 4)
       enddo
     endif ! dompi
 
     do k = hl_base, hl_top
         mqt_env(k) = mqt_env(k)/env_counts(k)
         mtabs_env(k) = mtabs_env(k)/env_counts(k)
+        mtracer1_env(k) = mtracer1_env(k)/env_counts(k)
     enddo
 
     ! smooth out the prognostic variables in the environment
@@ -257,6 +266,9 @@ subroutine homogenize_cld_env
           if (l_env(i,j,k)) then
             micro_field(i,j,k,1) = (mqt_env(k) + &
               micro_field(i,j,k,1) * (relax_steps - 1.0))/relax_steps
+            if (smooth_tracer)  &
+              tracer(i,j,k,1) = (mtracer1_env(k) + &
+                tracer(i,j,k,1) * (relax_steps - 1.0))/relax_steps
             ! we only homogenize actual temperature
             ! the part of 't' associated with potential energy
             ! and latent heat are not touched
@@ -278,10 +290,10 @@ subroutine homogenize_cld_env
       endif ! no_ehe_file
       write(168, '(7i10)') nstep, nzm, kcb, cl_base, cl_top, hl_base, hl_top
       do k = 1, nzm 
-        write(168, '(7e20.12)') &
-             tr0(k), tr_sd(k), tr_min(k), &
+        write(168, '(8e20.12)') &
+             tr_mean(k), tr_sd(k), tr_min(k), &
              env_counts(k), ccb_counts(k), &
-             mtabs_env(k), mqt_env(k)
+             mtabs_env(k), mqt_env(k), mtracer1_env(k)
       enddo
       close(168)
     endif ! masterproc
@@ -400,6 +412,18 @@ subroutine homogenize_cld_env
       do k=1,nzm
         do j=1,ny
           do i=1,nx
+            tmp(i,j,k)=tracer1_before(i,j,k)
+          end do
+        end do
+      end do
+      name='TR1_BEFO'
+      long_name='TR1 (prognostic) before homogenization'
+      units='kg/kg'
+      call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
+                      save3Dbin,dompi,rank,nsubdomains) 
+      do k=1,nzm
+        do j=1,ny
+          do i=1,nx
             tmp(i,j,k)=micro_field(i,j,k, 1)*1.e3
           end do
         end do
@@ -419,6 +443,18 @@ subroutine homogenize_cld_env
       name='TL_AFTER'
       long_name='TL (prognostic) after homogenization'
       units='K'
+      call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
+                      save3Dbin,dompi,rank,nsubdomains) 
+      do k=1,nzm
+        do j=1,ny
+          do i=1,nx
+            tmp(i,j,k)=tracer(i,j,k,1)
+          end do
+        end do
+      end do
+      name='TR1_AFTE'
+      long_name='TR1 (prognostic) after homogenization'
+      units='kg/kg'
       call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
                       save3Dbin,dompi,rank,nsubdomains) 
       do k=1,nzm

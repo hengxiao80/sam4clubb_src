@@ -10,7 +10,11 @@ implicit none
 real tau_min	! minimum damping time-scale (at the top)
 real tau_max    ! maxim damping time-scale (base of damping layer)
 real damp_depth ! damping depth as a fraction of the domain height
+#ifdef GOAMAZON
+parameter(tau_min=60., tau_max=1800., damp_depth=0.2)
+#else
 parameter(tau_min=60., tau_max=1800., damp_depth=0.3)
+#endif
 real tau(nzm)   
 integer i, j, k, n_damp
 

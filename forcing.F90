@@ -553,6 +553,8 @@ endif
 if(dosfcforcing) then
 #elif LASSO_ENA
 if(dosfcforcing) then
+#elif GOAMAZON
+if(dosfcforcing) then
 #else
 if(dosfcforcing.and.time.gt.timelargescale) then
 #endif

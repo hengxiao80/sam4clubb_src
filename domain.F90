@@ -77,7 +77,7 @@ module domain
        ! 250-m res. domain following TZ25 - 8 nodes on perlmutter
        integer, parameter :: nx_gl = 512 ! Number of grid points in X
        integer, parameter :: ny_gl = 512 ! Number of grid points in Y
-       integer, parameter :: nz_gl = 141 ! Number of pressure (scalar) levels
+       integer, parameter :: nz_gl = 169 ! Number of pressure (scalar) levels to ~ 20 km
        integer, parameter :: nsubdomains_x  = 16 ! No of subdomains in x
        integer, parameter :: nsubdomains_y  = 16 ! No of subdomains in y
 #else
