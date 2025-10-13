@@ -28,6 +28,8 @@ subroutine homogenize_cld_env
   ! real, parameter :: relax_steps = 300.0 ! 90 s homogenization
   ! real, parameter :: relax_steps = 1000.0 ! 300 s homogenization
   ! real, parameter :: relax_steps = 6000.0 ! 1800 s homogenization
+  logical, parameter :: smooth_t = .false. ! whether to smooth out temperature in the env.
+  logical, parameter :: smooth_qt = .false. ! whether to smooth out q_t in the env.
   logical, parameter :: smooth_tracer = .true. ! whether to smooth out tracer in the env.
 
   integer, parameter :: nbuff = 4
@@ -264,15 +266,17 @@ subroutine homogenize_cld_env
       do i = 1, nx
         do j = 1, ny
           if (l_env(i,j,k)) then
-            micro_field(i,j,k,1) = (mqt_env(k) + &
-              micro_field(i,j,k,1) * (relax_steps - 1.0))/relax_steps
+            if (smooth_qt)  &
+              micro_field(i,j,k,1) = (mqt_env(k) + &
+                micro_field(i,j,k,1) * (relax_steps - 1.0))/relax_steps
             if (smooth_tracer)  &
               tracer(i,j,k,1) = (mtracer1_env(k) + &
                 tracer(i,j,k,1) * (relax_steps - 1.0))/relax_steps
             ! we only homogenize actual temperature
             ! the part of 't' associated with potential energy
             ! and latent heat are not touched
-            ! t(i,j,k) = t(i,j,k) - (tabs(i,j,k) - mtabs_env(k))/relax_steps
+            if (smooth_t) &
+              t(i,j,k) = t(i,j,k) - (tabs(i,j,k) - mtabs_env(k))/relax_steps
           endif ! l_env(i,j,k)
         enddo
       enddo
