@@ -19,7 +19,7 @@ subroutine homogenize_cld_env
   ! parameter controlling the minimum tracer concentration anomaly
   ! in a plume grid point, in terms of fraction of
   ! the horizontal standard deviation 
-  real, parameter :: tr_frac = 0.5
+  real, parameter :: tr_frac = 0.25
   ! the relaxation time scale in number of time steps
   ! for our standard BOMEX run, dt = 0.3 s
   real, parameter :: relax_steps = 1.0 ! instantaneous homogenization
@@ -29,8 +29,8 @@ subroutine homogenize_cld_env
   ! real, parameter :: relax_steps = 1000.0 ! 300 s homogenization
   ! real, parameter :: relax_steps = 6000.0 ! 1800 s homogenization
   logical, parameter :: smooth_t = .false. ! whether to smooth out temperature in the env.
-  logical, parameter :: smooth_qt = .false. ! whether to smooth out q_t in the env.
-  logical, parameter :: smooth_tracer = .true. ! whether to smooth out tracer in the env.
+  logical, parameter :: smooth_qt = .true. ! whether to smooth out q_t in the env.
+  logical, parameter :: smooth_tracer = .false. ! whether to smooth out tracer in the env.
 
   integer, parameter :: nbuff = 4
 
@@ -47,6 +47,7 @@ subroutine homogenize_cld_env
 
   ! env counts and means
   real :: env_counts(nzm), mqt_env(nzm), mtabs_env(nzm), mtracer1_env(nzm)
+  real :: cld_counts(nzm), plume_counts(nzm)
   ! column cloud base counts
   real :: ccb_counts(nzm)
 
@@ -154,10 +155,11 @@ subroutine homogenize_cld_env
     enddo
 
     ! set hl_top to a fixed level to avoid variations of cloud top height
-    hl_top = 100 ! ~2.5 km with dz = 25 m
+    ! hl_top = 100 ! ~2.5 km with dz = 25 m for bomex
     ! hl_top = 50 ! ~ 1.25 km
     ! hl_top = 38 ! ~ (25 (cl_base mean) + 50) / 2
     ! hl_top = 32 
+    hl_top = 100 ! ~5 km with dz = 50 m for goamazon
     ! hl_base = 33
     ! hl_base = 29 
     hl_base = cl_base
@@ -172,7 +174,9 @@ subroutine homogenize_cld_env
       do j = 1, ny
         kcb = 0
         do k = nzm, 1, -1
-          if ((qcl(i,j,k)+qci(i,j,k)) .gt. qc_limit) kcb = k
+          ! if ((qcl(i,j,k)+qci(i,j,k)) .gt. qc_limit) kcb = k
+          ! capturing only liquid cloud base
+          if (qcl(i,j,k) .gt. qc_limit) kcb = k
         enddo
         if (kcb .gt. 0) ccb_counts(kcb) = ccb_counts(kcb) + 1.0
       enddo 
@@ -196,16 +200,36 @@ subroutine homogenize_cld_env
       endif ! kcb .eq. 0
     enddo
 
-    ! store the before homogenization fields
+    ! calculate the cloud and plume counts for diagnosis
+    ! and store the before homogenization fields
+    cld_counts(:) = 0.0 
+    plume_counts(:) = 0.0 
     do k = 1, nzm
       do j = 1, ny
         do i = 1, nx
           qt_before(i,j,k) = micro_field(i,j,k,1)
           t_before(i,j,k) = t(i,j,k)
           tracer1_before(i,j,k) = tracer(i,j,k,1)
+          if ((qcl(i,j,k) +qci(i,j,k)) .ge. qc_limit) then
+            cld_counts(k) = cld_counts(k) + 1.0
+          end if
+          if (tracer(i,j,k,1) .lt. max((tr_mean(k)+tr_frac*tr_sd(k)), tr_min(k))) then
+            plume_counts(k) = plume_counts(k) + 1.0
+          end if
         enddo
       enddo 
     end do
+    if(dompi) then
+      do k = 1, nzm
+        buffer(k,1) = cld_counts(k)
+        buffer(k,2) = plume_counts(k)
+      enddo
+      call task_sum_real8(buffer,buffer1,nzm*nbuff)
+      do k = 1,nzm
+        cld_counts(k) = buffer1(k, 1)
+        plume_counts(k) = buffer1(k, 2)
+      enddo
+    endif ! dompi
 
     ! only homogenize the levels at and above kcb
     ! so that we are only homogenizing the environment
@@ -294,9 +318,9 @@ subroutine homogenize_cld_env
       endif ! no_ehe_file
       write(168, '(7i10)') nstep, nzm, kcb, cl_base, cl_top, hl_base, hl_top
       do k = 1, nzm 
-        write(168, '(8e20.12)') &
+        write(168, '(10e20.12)') &
              tr_mean(k), tr_sd(k), tr_min(k), &
-             env_counts(k), ccb_counts(k), &
+             env_counts(k), ccb_counts(k), cld_counts(k), plume_counts(k), &
              mtabs_env(k), mqt_env(k), mtracer1_env(k)
       enddo
       close(168)
