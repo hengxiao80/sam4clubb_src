@@ -19,7 +19,7 @@ subroutine homogenize_cld_env
   ! parameter controlling the minimum tracer concentration anomaly
   ! in a plume grid point, in terms of fraction of
   ! the horizontal standard deviation 
-  real, parameter :: tr_frac = 0.25
+  real, parameter :: tr_frac = 0.5
   ! the relaxation time scale in number of time steps
   ! for our standard BOMEX run, dt = 0.3 s
   real, parameter :: relax_steps = 1.0 ! instantaneous homogenization
@@ -47,6 +47,7 @@ subroutine homogenize_cld_env
 
   ! env counts and means
   real :: env_counts(nzm), mqt_env(nzm), mtabs_env(nzm), mtracer1_env(nzm)
+  ! cloud, plume grid box counts
   real :: cld_counts(nzm), plume_counts(nzm)
   ! column cloud base counts
   real :: ccb_counts(nzm)
@@ -132,6 +133,37 @@ subroutine homogenize_cld_env
       endif
     enddo
 
+    ! calculate the cloud and plume counts for diagnosis
+    ! and store the before homogenization fields
+    cld_counts(:) = 0.0
+    plume_counts(:) = 0.0
+    do k = 1, nzm
+      do j = 1, ny
+        do i = 1, nx
+          qt_before(i,j,k) = micro_field(i,j,k,1)
+          t_before(i,j,k) = t(i,j,k)
+          tracer1_before(i,j,k) = tracer(i,j,k,1)
+          if ((qcl(i,j,k) +qci(i,j,k)) .ge. qc_limit) then
+            cld_counts(k) = cld_counts(k) + 1.0
+          end if
+          if (tracer(i,j,k,1) .lt. max((tr_mean(k)+tr_frac*tr_sd(k)), tr_min(k))) then
+            plume_counts(k) = plume_counts(k) + 1.0
+          end if
+        enddo
+      enddo 
+    end do
+    if(dompi) then
+      do k = 1, nzm
+        buffer(k,1) = cld_counts(k)
+        buffer(k,2) = plume_counts(k)
+      enddo
+      call task_sum_real8(buffer,buffer1,nzm*nbuff)
+      do k = 1,nzm
+        cld_counts(k) = buffer1(k, 1)
+        plume_counts(k) = buffer1(k, 2)
+      enddo
+    endif ! dompi
+
     ! Determine cl_top and cl_base using qn0
     ! qn0 has just been updated in diagnose()
     ! at the end of the last time step.
@@ -159,10 +191,14 @@ subroutine homogenize_cld_env
     ! hl_top = 50 ! ~ 1.25 km
     ! hl_top = 38 ! ~ (25 (cl_base mean) + 50) / 2
     ! hl_top = 32 
-    hl_top = 100 ! ~5 km with dz = 50 m for goamazon
+    ! hl_top = 100 ! ~5 km with dz = 50 m for goamazon
+    hl_top = 130 ! ~6.5 km with dz = 50 m for goamazon
+
+    ! set hl_top to a fixed level or the cloud base
     ! hl_base = 33
     ! hl_base = 29 
     hl_base = cl_base
+
     ! set hl_base to be the mid of the cloud layer
     ! if ((hl_top - cl_base) .ge. 2) hl_base = floor(cl_base + (hl_top - cl_base)/2.0)
 
@@ -200,45 +236,13 @@ subroutine homogenize_cld_env
       endif ! kcb .eq. 0
     enddo
 
-    ! calculate the cloud and plume counts for diagnosis
-    ! and store the before homogenization fields
-    cld_counts(:) = 0.0 
-    plume_counts(:) = 0.0 
-    do k = 1, nzm
-      do j = 1, ny
-        do i = 1, nx
-          qt_before(i,j,k) = micro_field(i,j,k,1)
-          t_before(i,j,k) = t(i,j,k)
-          tracer1_before(i,j,k) = tracer(i,j,k,1)
-          if ((qcl(i,j,k) +qci(i,j,k)) .ge. qc_limit) then
-            cld_counts(k) = cld_counts(k) + 1.0
-          end if
-          if (tracer(i,j,k,1) .lt. max((tr_mean(k)+tr_frac*tr_sd(k)), tr_min(k))) then
-            plume_counts(k) = plume_counts(k) + 1.0
-          end if
-        enddo
-      enddo 
-    end do
-    if(dompi) then
-      do k = 1, nzm
-        buffer(k,1) = cld_counts(k)
-        buffer(k,2) = plume_counts(k)
-      enddo
-      call task_sum_real8(buffer,buffer1,nzm*nbuff)
-      do k = 1,nzm
-        cld_counts(k) = buffer1(k, 1)
-        plume_counts(k) = buffer1(k, 2)
-      enddo
-    endif ! dompi
-
     ! only homogenize the levels at and above kcb
     ! so that we are only homogenizing the environment
     ! in the layers where most clouds have already formed.
     ! (actually most of the time kcb is lower than cl_base)
     if (kcb .gt. 1) then
       if (hl_base .lt. kcb) hl_base = kcb 
-    endif ! kcb .gt. 1
-    ! if (hl_base .lt. 50) hl_base = 50
+    endif ! kcb .gt. 1 
 
     ! calculate env counts and mean qt and tabs within the subdomain
     do k = hl_base, hl_top
